@@ -11,7 +11,7 @@ var {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 // Default preferences for bootstrap extensions are registered dynamically.
 var defaultPrefs =
 {
-    "DBG_HELLOBOOTAMD": true,
+    "DBG_FIRECLOSURE": true,
 }
 
 // ********************************************************************************************* //
@@ -99,17 +99,15 @@ function topWindowUnload(win)
  */
 function firebugFrameLoad(Firebug)
 {
-    // Register trace listener the customizes trace logs coming from this extension
-    // * helloBootAMD; is unique prefix of all messages that should be customized.
-    // * DBG_HELLOBOOTAMD is a class name with style defined in the specified stylesheet.
-    Firebug.registerTracePrefix("helloBootAMD;", "DBG_HELLOBOOTAMD", true,
-        "chrome://hellobootamd/skin/hellobootamd.css");
+    // Register trace listener the customizes trace logs coming from this extension.
+    Firebug.registerTracePrefix("FireClosure;", "DBG_FIRECLOSURE", true,
+        "chrome://fireclosure/skin/fireclosure.css");
 
     // The registration process will automatically look for 'main' module and load it.
     // The is the same what happens in a XUL overlay applied on:
     // chrome://firebug/content/firebugOverlay.xul
-    var config = {id: "hellobootamd@janodvarko.cz"};
-    Firebug.registerExtension("hellobootamd", config);
+    var config = {id: "fireclosure@simonsoftware.se"};
+    Firebug.registerExtension("fireclosure", config);
 }
 
 function firebugFrameUnload(Firebug)
@@ -117,8 +115,8 @@ function firebugFrameUnload(Firebug)
     if (!Firebug.isInitialized)
         return;
 
-    Firebug.unregisterExtension("hellobootamd");
-    Firebug.unregisterTracePrefix("helloBootAMD;");
+    Firebug.unregisterExtension("fireclosure");
+    Firebug.unregisterTracePrefix("FireClosure;");
 }
 
 // ********************************************************************************************* //

@@ -1,1 +1,1 @@
-pref("extensions.firebug.DBG_HELLOBOOTAMD", true);
+pref("extensions.firebug.DBG_FIRECLOSURE", true);

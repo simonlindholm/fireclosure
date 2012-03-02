@@ -2,7 +2,7 @@
      xmlns:em="http://www.mozilla.org/2004/em-rdf#">
 
   <Description about="urn:mozilla:install-manifest">
-    <em:id>hellobootamd@janodvarko.cz</em:id>
+    <em:id>fireclosure@simonsoftware.se</em:id>
     <em:version>@VERSION@@RELEASE@</em:version>
     <em:type>2</em:type>
     <em:bootstrap>true</em:bootstrap>
@@ -18,9 +18,8 @@
     </em:targetApplication>
 
     <!-- Front End MetaData -->
-    <em:name>Bootstrapped Firebug 1.10 Extension Example</em:name>
-    <em:description>Example of a Firebug extension that doesn't require browser restart.</em:description>
-    <em:creator>Jan Odvarko</em:creator>
-    <em:homepageURL>http://getfirebug.com</em:homepageURL>
+    <em:name>FireClosure</em:name>
+    <em:description>Access closed-over variables in the Firebug console.</em:description>
+    <em:creator>Simon Lindholm</em:creator>
   </Description>
 </RDF>
