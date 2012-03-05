@@ -1,2 +1,4 @@
 content  fireclosure content/
 skin     fireclosure classic/1.0   chrome/skin/classic/
+interfaces components/iutils.xpt
+binary-component platform/Linux_x86-gcc3/components/fcutils.so ABI=Linux_x86-gcc3 appversion>=12
