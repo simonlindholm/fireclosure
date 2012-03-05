@@ -16,9 +16,15 @@
     <target name="build" depends="clean">
 
         <!-- Copy extension installation files and license.txt -->
-        <copy file="bootstrap.js" todir="${build.dir}"/>
-        <copy file="install.rdf" todir="${build.dir}"/>
-        <copy file="license.txt" todir="${build.dir}"/>
+        <copy todir="${build.dir}" file="bootstrap.js"/>
+        <copy todir="${build.dir}" file="install.rdf"/>
+        <copy todir="${build.dir}" file="license.txt"/>
+        <copy todir="${build.dir}/content"> <fileset dir="content"/> </copy>
+        <copy todir="${build.dir}/defaults"> <fileset dir="defaults"/> </copy>
+        <copy todir="${build.dir}/chrome"> <fileset dir="chrome"/> </copy>
+        <copy todir="${build.dir}/components"> <fileset dir="components"/> </copy>
+        <copy todir="${build.dir}/platform"> <fileset dir="platform"/> </copy>
+        <copy todir="${build.dir}/bin-src"> <fileset dir="bin-src"/> </copy>
 
         <!-- Copy install.rdf with updated release version info -->
         <replace file="${build.dir}/install.rdf" propertyFile="ant.properties">
