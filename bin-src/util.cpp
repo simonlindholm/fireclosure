@@ -1,4 +1,4 @@
-#define UINT32_MAX (0xffffffff)
+#define UINT32_MAX (0xffffffffU)
 #include <jsapi.h>
 #include <jsfriendapi.h>
 #include <jsdbgapi.h>
@@ -8,10 +8,10 @@
 // This is basically nsDOMWindowUtils::getParent() and some unwrapping,
 // available under MPL2.
 
-NS_IMPL_ISUPPORTS1(FireClosureUtils, IFireClosureUtils)
+NS_IMPL_ISUPPORTS1(nsFireClosureUtils, nsIFireClosureUtils)
 
 NS_IMETHODIMP
-FireClosureUtils::GetParentThroughWrappers(const JS::Value& val, JSContext* cx, JS::Value* out)
+nsFireClosureUtils::GetParentThroughWrappers(const JS::Value& val, JSContext* cx, JS::Value* out)
 {
     // XXX maybe I need JSAutoRequest
 
@@ -57,3 +57,6 @@ FireClosureUtils::GetParentThroughWrappers(const JS::Value& val, JSContext* cx, 
     *out = OBJECT_TO_JSVAL(parent);
     return NS_OK;
 }
+
+nsFireClosureUtils::nsFireClosureUtils() {}
+nsFireClosureUtils::~nsFireClosureUtils() {}

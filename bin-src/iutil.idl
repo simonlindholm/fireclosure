@@ -2,7 +2,7 @@
 #include "nsISupports.idl"
 
 [scriptable, uuid(4073f0b0-665c-11e1-b86c-0800200c9a66)]
-interface IFireClosureUtils : nsISupports {
+interface nsIFireClosureUtils : nsISupports {
 
     [implicit_jscontext] jsval getParentThroughWrappers(in jsval obj);
 
