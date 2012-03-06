@@ -5,7 +5,6 @@
     <em:id>fireclosure@simonsoftware.se</em:id>
     <em:version>@VERSION@@RELEASE@</em:version>
     <em:type>2</em:type>
-    <em:bootstrap>true</em:bootstrap>
     <em:unpack>true</em:unpack>
 
     <!-- Target Application this extension can install into, 

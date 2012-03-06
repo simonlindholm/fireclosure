@@ -16,9 +16,9 @@
     <target name="build" depends="clean">
 
         <!-- Copy extension installation files and license.txt -->
-        <copy todir="${build.dir}" file="bootstrap.js"/>
         <copy todir="${build.dir}" file="install.rdf"/>
         <copy todir="${build.dir}" file="license.txt"/>
+        <copy todir="${build.dir}" file="chrome.manifest"/>
         <copy todir="${build.dir}/content"> <fileset dir="content"/> </copy>
         <copy todir="${build.dir}/defaults"> <fileset dir="defaults"/> </copy>
         <copy todir="${build.dir}/chrome"> <fileset dir="chrome"/> </copy>
