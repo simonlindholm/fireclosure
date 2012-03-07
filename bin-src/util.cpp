@@ -40,7 +40,7 @@ nsFireClosureUtils::GetParentThroughWrappers(const JS::Value& val, JSContext* cx
             return NS_ERROR_FAILURE;
         }
 
-        JSObject* parent = JS_GetParent(fakeCx, unwrapped);
+        parent = JS_GetParent(fakeCx, unwrapped);
 
         // Outerize if necessary.
         if (parent) {
