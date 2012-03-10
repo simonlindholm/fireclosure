@@ -29,8 +29,11 @@ class NS_NO_VTABLE NS_SCRIPTABLE nsIFireClosureUtils : public nsISupports {
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IFIRECLOSUREUTILS_IID)
 
-  /* [implicit_jscontext] jsval getParentThroughWrappers (in jsval obj); */
-  NS_SCRIPTABLE NS_IMETHOD GetParentThroughWrappers(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) = 0;
+  /* [implicit_jscontext] jsval getParentScope (in jsval obj); */
+  NS_SCRIPTABLE NS_IMETHOD GetParentScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) = 0;
+
+  /* [implicit_jscontext] jsval getScope (in jsval obj); */
+  NS_SCRIPTABLE NS_IMETHOD GetScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) = 0;
 
 };
 
@@ -38,15 +41,18 @@ class NS_NO_VTABLE NS_SCRIPTABLE nsIFireClosureUtils : public nsISupports {
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIFIRECLOSUREUTILS \
-  NS_SCRIPTABLE NS_IMETHOD GetParentThroughWrappers(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM); 
+  NS_SCRIPTABLE NS_IMETHOD GetParentScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM); \
+  NS_SCRIPTABLE NS_IMETHOD GetScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIFIRECLOSUREUTILS(_to) \
-  NS_SCRIPTABLE NS_IMETHOD GetParentThroughWrappers(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return _to GetParentThroughWrappers(obj, cx, _retval); } 
+  NS_SCRIPTABLE NS_IMETHOD GetParentScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return _to GetParentScope(obj, cx, _retval); } \
+  NS_SCRIPTABLE NS_IMETHOD GetScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return _to GetScope(obj, cx, _retval); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIFIRECLOSUREUTILS(_to) \
-  NS_SCRIPTABLE NS_IMETHOD GetParentThroughWrappers(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return !_to ? NS_ERROR_NULL_POINTER : _to->GetParentThroughWrappers(obj, cx, _retval); } 
+  NS_SCRIPTABLE NS_IMETHOD GetParentScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return !_to ? NS_ERROR_NULL_POINTER : _to->GetParentScope(obj, cx, _retval); } \
+  NS_SCRIPTABLE NS_IMETHOD GetScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM) { return !_to ? NS_ERROR_NULL_POINTER : _to->GetScope(obj, cx, _retval); } 
 
 #if 0
 /* Use the code below as a template for the implementation class for this interface. */
@@ -80,8 +86,14 @@ nsFireClosureUtils::~nsFireClosureUtils()
   /* destructor code */
 }
 
-/* [implicit_jscontext] jsval getParentThroughWrappers (in jsval obj); */
-NS_IMETHODIMP nsFireClosureUtils::GetParentThroughWrappers(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM)
+/* [implicit_jscontext] jsval getParentScope (in jsval obj); */
+NS_IMETHODIMP nsFireClosureUtils::GetParentScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM)
+{
+    return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+/* [implicit_jscontext] jsval getScope (in jsval obj); */
+NS_IMETHODIMP nsFireClosureUtils::GetScope(const JS::Value & obj, JSContext* cx, JS::Value *_retval NS_OUTPARAM)
 {
     return NS_ERROR_NOT_IMPLEMENTED;
 }
