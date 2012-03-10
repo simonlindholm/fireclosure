@@ -3,6 +3,7 @@
 define([
     "firebug/lib/object",
     "firebug/lib/trace",
+    "fireclosure/autoCompleter",
 ],
 function(Obj, FBTrace) {
 

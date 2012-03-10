@@ -3,7 +3,6 @@
 define([
     "firebug/lib/object",
     "firebug/firebug",
-    "firebug/lib/domplate",
     "firebug/chrome/reps",
     "firebug/lib/locale",
     "firebug/lib/events",
@@ -11,15 +10,12 @@ define([
     "firebug/lib/dom",
     "firebug/lib/string",
     "firebug/lib/array",
-    "firebug/editor/editor"
+    "firebug/console/autoCompleter",
 ],
-function(Obj, Firebug, Domplate, FirebugReps, Locale, Events, Wrapper, Dom, Str, Arr, Editor) {
+function(Obj, Firebug, FirebugReps, Locale, Events, Wrapper, Dom, Str, Arr) {
 
 // ********************************************************************************************* //
 // Constants
-
-const Cc = Components.classes;
-const Ci = Components.interfaces;
 
 const reOpenBracket = /[\[\(\{]/;
 const reCloseBracket = /[\]\)\}]/;
@@ -565,95 +561,6 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
     Events.addEventListener(this.completionPopup, "mousedown", this.popupMousedown, true);
     Events.addEventListener(this.completionPopup, "click", this.popupClick, true);
 };
-
-// ********************************************************************************************* //
-
-/**
- * A dummy auto-completer, set as current by CommandLine.setAutoCompleter when
- * no completion is supposed to be done (such as in the large command line,
- * currently, or when there is no context).
- */
-Firebug.EmptyJSAutoCompleter = function()
-{
-    this.empty = true;
-    this.shutdown = function() {};
-    this.hide = function() {};
-    this.complete = function() {};
-    this.acceptReturn = function() { return true; };
-    this.revert = function() { return false; };
-    this.handleKeyDown = function() {};
-    this.handleKeyPress = function() {};
-};
-
-// ********************************************************************************************* //
-
-/**
- * An (abstract) editor with simple JavaScript auto-completion.
- */
-Firebug.JSEditor = function()
-{
-};
-
-with (Domplate) {
-Firebug.JSEditor.prototype = domplate(Firebug.InlineEditor.prototype,
-{
-    setupCompleter: function(completionBox, options)
-    {
-        this.tabNavigation = false;
-        this.arrowCompletion = false;
-        this.fixedWidth = true;
-        this.completionBox = completionBox;
-
-        this.autoCompleter = new EditorJSAutoCompleter(this.input, this.completionBox, options);
-    },
-
-    updateLayout: function()
-    {
-        // Make sure the completion box stays in sync with the input box.
-        Firebug.InlineEditor.prototype.updateLayout.apply(this, arguments);
-        this.completionBox.style.width = this.input.style.width;
-        this.completionBox.style.height = this.input.style.height;
-    },
-
-    destroy: function()
-    {
-        this.autoCompleter.destroy();
-        Firebug.InlineEditor.prototype.destroy.call(this);
-    },
-
-    onKeyPress: function(event)
-    {
-        var context = this.panel.context;
-
-        if (this.getAutoCompleter().handleKeyPress(event, context))
-            return;
-
-        if (event.keyCode === KeyEvent.DOM_VK_TAB ||
-            event.keyCode === KeyEvent.DOM_VK_RETURN)
-        {
-            this.stopEditing();
-            Events.cancelEvent(event);
-        }
-    },
-
-    onInput: function()
-    {
-        var context = this.panel.context;
-        this.getAutoCompleter().complete(context);
-        Firebug.Editor.update();
-    }
-});
-}
-
-function EditorJSAutoCompleter(box, completionBox, options)
-{
-    var ac = new Firebug.JSAutoCompleter(box, completionBox, options);
-
-    this.destroy = Obj.bindFixed(ac.shutdown, ac);
-    this.reset = Obj.bindFixed(ac.hide, ac);
-    this.complete = Obj.bind(ac.complete, ac);
-    this.handleKeyPress = Obj.bind(ac.handleKeyPress, ac);
-}
 
 // ********************************************************************************************* //
 // Auto-completion helpers
