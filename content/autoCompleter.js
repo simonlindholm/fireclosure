@@ -176,7 +176,9 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         if (preExpr !== this.completionBase.expr)
         {
             this.completionBase.expr = preExpr;
-            this.completionBase.candidates = autoCompleteEval(context, preExpr, spreExpr,
+            this.completionBase.candidates = [];
+            this.completionBase.hasPriv = false;
+            autoCompleteEval(this.completionBase, context, preExpr, spreExpr,
                 this.options.includeCurrentScope);
         }
 
@@ -442,9 +444,18 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 
         var escPrefix = Str.escapeForTextNode(this.textBox.value);
 
+        var listSize = this.completions.list.length;
+        if (this.completions.prefix == '' &&
+            !/\[['"]/.test(this.completionBase.expr.slice(-2)) &&
+            this.completionBase.expr.slice(-2) !== ".%" &&
+            this.completionBase.hasPriv)
+        {
+            ++listSize;
+        }
+
         var showTop = 0;
-        var showBottom = this.completions.list.length;
-        if (this.completions.list.length > commandCompletionLineLimit)
+        var showBottom = listSize;
+        if (listSize > commandCompletionLineLimit)
         {
             if (this.completions.index <= (commandCompletionLineLimit - 3))
             {
@@ -454,8 +465,8 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
             else
             {
                 // Implement manual scrolling.
-                if (this.completions.index > (this.completions.list.length - 3))
-                    showBottom = this.completions.list.length;
+                if (this.completions.index > listSize - 3)
+                    showBottom = listSize;
                 else
                     showBottom = this.completions.index + 3;
             }
@@ -467,24 +478,37 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         {
             var hbox = this.completionPopup.ownerDocument.
                 createElementNS("http://www.w3.org/1999/xhtml","div");
-            hbox.completionIndex = i;
 
-            var pre = this.completionPopup.ownerDocument.
-                createElementNS("http://www.w3.org/1999/xhtml","span");
-            pre.innerHTML = escPrefix;
-            pre.classList.add("userTypedText");
+            if (i == this.completions.list.length) {
+                var text = this.completionPopup.ownerDocument.
+                    createElementNS("http://www.w3.org/1999/xhtml","span");
+                text.innerHTML = "% for private members...";
+                text.style.fontStyle = "italic";
+                text.style.paddingLeft = "3px";
+                text.style.fontSize = "90%";
+                text.style.color = "#777";
+                hbox.appendChild(text);
+            }
+            else {
+                hbox.completionIndex = i;
 
-            var completion = this.completions.list[i].substr(this.completions.prefix.length);
-            var post = this.completionPopup.ownerDocument.
-                createElementNS("http://www.w3.org/1999/xhtml","span");
-            post.innerHTML = Str.escapeForTextNode(completion);
-            post.classList.add("completionText");
+                var pre = this.completionPopup.ownerDocument.
+                    createElementNS("http://www.w3.org/1999/xhtml","span");
+                pre.innerHTML = escPrefix;
+                pre.classList.add("userTypedText");
 
-            if (i === this.completions.index)
-                this.selectedPopupElement = hbox;
+                var completion = this.completions.list[i].substr(this.completions.prefix.length);
+                var post = this.completionPopup.ownerDocument.
+                    createElementNS("http://www.w3.org/1999/xhtml","span");
+                post.innerHTML = Str.escapeForTextNode(completion);
+                post.classList.add("completionText");
 
-            hbox.appendChild(pre);
-            hbox.appendChild(post);
+                if (i === this.completions.index)
+                    this.selectedPopupElement = hbox;
+
+                hbox.appendChild(pre);
+                hbox.appendChild(post);
+            }
             vbox.appendChild(hbox);
         }
 
@@ -1254,6 +1278,14 @@ function sortUnique(ar)
     return ret;
 }
 
+function hasScopedVariables(obj)
+{
+    if (typeof obj !== "object" && typeof obj !== "function")
+        return false;
+    var parts = Firebug.FireClosure.getScopedVariables(obj);
+    return parts.some(function(part) { return part.length > 0; });
+}
+
 function propChainBuildComplete(out, context, tempExpr, result)
 {
     var complete = null, command = null;
@@ -1293,6 +1325,7 @@ function propChainBuildComplete(out, context, tempExpr, result)
         else
             complete = Arr.keys(result);
         command = getTypeExtractionExpression(tempExpr.command);
+        out.hasPriv = hasScopedVariables(result);
     }
 
     var done = function()
@@ -1640,11 +1673,12 @@ function evalPropChain(out, preExpr, origExpr, context)
     return true;
 }
 
-function autoCompleteEval(context, preExpr, spreExpr, includeCurrentScope)
+function autoCompleteEval(base, context, preExpr, spreExpr, includeCurrentScope)
 {
     var out = {};
 
     out.complete = [];
+    out.hasPriv = false;
 
     try
     {
@@ -1681,7 +1715,7 @@ function autoCompleteEval(context, preExpr, spreExpr, includeCurrentScope)
 
             // Don't auto-complete '.'.
             if (spreExpr === "")
-                return out.complete;
+                return;
 
             evalPropChain(out, spreExpr, preExpr, context);
         }
@@ -1717,7 +1751,9 @@ function autoCompleteEval(context, preExpr, spreExpr, includeCurrentScope)
         if (FBTrace.DBG_ERRORS && FBTrace.DBG_COMMANDLINE)
             FBTrace.sysout("commandLine.autoCompleteEval FAILED", exc);
     }
-    return out.complete;
+
+    base.candidates = out.complete;
+    base.hasPriv = out.hasPriv;
 }
 
 var reValidJSToken = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
