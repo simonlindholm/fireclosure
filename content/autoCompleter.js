@@ -656,10 +656,10 @@ function getPropertyOffset(expr)
         return lastBr+2;
 
     var lastDot = expr.lastIndexOf(".");
-    if (lastDot !== -1)
-        return lastDot+1;
+    if (lastDot !== -1 && expr.charAt(lastDot+1) === "%")
+        return lastDot+2;
 
-    return 0;
+    return lastDot+1;
 }
 
 /**
@@ -880,7 +880,8 @@ function killCompletions(expr, origExpr)
         return true;
 
     if (reJSChar.test(expr[expr.length-1]) ||
-            expr[expr.length-1] === ".")
+            expr.slice(-1) === "." ||
+            expr.slice(-2) === ".%")
     {
         // An expression at the end - we're fine.
     }
@@ -948,6 +949,10 @@ function adjustCompletionOnAccept(preParsed, preExpr, property)
 
     // Don't adjust index completions.
     if (/^\[['"]$/.test(preExpr.slice(-2)))
+        return res;
+
+    // Nor completions of private variables.
+    if (preExpr.slice(-2) === ".%")
         return res;
 
     if (!isValidProperty(property))
@@ -1168,10 +1173,11 @@ var AutoCompletionKnownTypes = {
 
 var LinkType = {
     "PROPERTY": 0,
-    "INDEX": 1,
-    "CALL": 2,
-    "SAFECALL": 3,
-    "RETVAL_HEURISTIC": 4
+    "PRIV_PROP": 1,
+    "INDEX": 2,
+    "CALL": 3,
+    "SAFECALL": 4,
+    "RETVAL_HEURISTIC": 5
 };
 
 function getKnownType(t)
@@ -1251,6 +1257,19 @@ function sortUnique(ar)
 function propChainBuildComplete(out, context, tempExpr, result)
 {
     var complete = null, command = null;
+
+    if (out.privCompletion)
+    {
+        if (tempExpr.fake)
+            return;
+        if (typeof result !== "object" && typeof result !== "function")
+            return;
+        var parts = Firebug.FireClosure.getScopedVariables(result);
+        complete = Array.prototype.concat.apply([], parts);
+        out.complete = sortUnique(complete);
+        return;
+    }
+
     if (tempExpr.fake)
     {
         var name = tempExpr.value.val;
@@ -1352,6 +1371,10 @@ function evalPropChainStep(step, tempExpr, evalChain, out, context)
             else
                 return;
         }
+        else
+        {
+            return;
+        }
         evalPropChainStep(step+1, tempExpr, evalChain, out, context);
     }
     else
@@ -1365,6 +1388,11 @@ function evalPropChainStep(step, tempExpr, evalChain, out, context)
             {
                 tempExpr.thisCommand = tempExpr.command;
                 tempExpr.command += "." + link.name;
+            }
+            else if (type === LinkType.PRIV_PROP)
+            {
+                tempExpr.thisCommand = "window";
+                tempExpr.command += ".%" + link.name;
             }
             else if (type === LinkType.INDEX)
             {
@@ -1556,10 +1584,15 @@ function evalPropChain(out, preExpr, origExpr, context)
             if (ch === ".")
             {
                 // Property access
-                var nextLink = eatProp(preExpr, linkStart+1);
-                lastProp = preExpr.substring(linkStart+1, nextLink);
+                var priv = (preExpr.charAt(linkStart+1) === "%");
+                linkStart += (priv ? 2 : 1);
+                var nextLink = eatProp(preExpr, linkStart);
+                lastProp = preExpr.substring(linkStart, nextLink);
                 linkStart = nextLink;
-                evalChain.push({"type": LinkType.PROPERTY, "name": lastProp});
+                evalChain.push({
+                    "type": (priv ? LinkType.PRIV_PROP : LinkType.PROPERTY),
+                    "name": lastProp
+                });
             }
             else if (ch === "(")
             {
@@ -1622,24 +1655,25 @@ function autoCompleteEval(context, preExpr, spreExpr, includeCurrentScope)
             // In case of array indexing, remove the bracket and set a flag to
             // escape completions.
             out.indexCompletion = false;
+            out.privCompletion = false;
             var len = spreExpr.length;
             if (len >= 2 && spreExpr[len-2] === "[" && spreExpr[len-1] === '"')
             {
                 out.indexCompletion = true;
                 out.indexQuoteType = preExpr[len-1];
-                spreExpr = spreExpr.substr(0, len-2);
-                preExpr = preExpr.substr(0, len-2);
+                len -= 2;
+            }
+            else if (spreExpr.slice(-2) === ".%")
+            {
+                out.privCompletion = true;
+                len -= 2;
             }
             else
             {
-                // Remove the trailing dot (if there is one)
-                var lastDot = spreExpr.lastIndexOf(".");
-                if (lastDot !== -1)
-                {
-                    spreExpr = spreExpr.substr(0, lastDot);
-                    preExpr = preExpr.substr(0, lastDot);
-                }
+                len -= 1;
             }
+            spreExpr = spreExpr.substr(0, len);
+            preExpr = preExpr.substr(0, len);
 
             if (FBTrace.DBG_COMMANDLINE)
                 FBTrace.sysout("commandLine.autoCompleteEval pre:'" + preExpr +
