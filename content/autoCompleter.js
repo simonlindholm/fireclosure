@@ -562,21 +562,47 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
     Events.addEventListener(this.completionPopup, "click", this.popupClick, true);
 };
 
+/**
+ * Transform an expression from using .% into something JavaScript-friendly, which
+ * delegates to _FirebugCommandLine.
+ * Used only in module.js, but autoCompleter.js has so many nice helper functions.
+ */
+Firebug.JSAutoCompleter.transformPrivVarExpr = function(expr)
+{
+    var sexpr = simplifyExpr(expr);
+    if (!sexpr) return expr;
+    var search = 0;
+    for (;;) {
+        var end = sexpr.indexOf(".%", search);
+        if (end === -1) break;
+        var start = getExpressionOffset(sexpr, end);
+        expr = expr.substr(0, start) + "_FirebugCommandLine._scopedVars(" +
+            expr.substring(start, end) + ")." +
+            expr.substr(end+2);
+        sexpr = sexpr.substr(0, start) + "_FirebugCommandLine._scopedVars(" +
+            sexpr.substring(start, end) + ")." +
+            sexpr.substr(end+2);
+        search = end + "_FirebugCommandLine._scopedVars().".length;
+    }
+    return expr;
+};
+
 // ********************************************************************************************* //
 // Auto-completion helpers
 
 /**
  * Try to find the position at which the expression to be completed starts.
  */
-function getExpressionOffset(command)
+function getExpressionOffset(command, start)
 {
-    var bracketCount = 0;
+    if (typeof start === 'undefined')
+        start = command.length;
 
-    var start = command.length, instr = false;
+    var bracketCount = 0, instr = false;
 
     // When completing []-accessed properties, start instead from the last [.
-    var lastBr = command.lastIndexOf("[");
-    if (lastBr !== -1 && /^" *$/.test(command.substr(lastBr+1)))
+    var lastBr = command.lastIndexOf("[", start);
+    if (lastBr !== -1 && /^" *$/.test(command.substring(lastBr+1, start)))
         start = lastBr;
 
     for (var i = start-1; i >= 0; --i)
@@ -600,7 +626,10 @@ function getExpressionOffset(command)
         else if (bracketCount === 0)
         {
             if (c === '"') instr = !instr;
-            else if (!instr && !reJSChar.test(c) && c !== ".")
+            else if (instr || reJSChar.test(c) || c === "." ||
+                (c === "%" && command[i-1] === "."))
+                ;
+            else
                 break;
         }
     }

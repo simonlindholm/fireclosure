@@ -144,6 +144,36 @@ var FireClosure =
         };
     },
 
+    getScopedVarsWrapper: function(obj)
+    {
+        var self = this;
+        var handler = {};
+        handler.getOwnPropertyDescriptor = function(name) {
+            if (name === "__exposedProps__") {
+                // Expose everything, rw, through another proxy.
+                return {
+                    value: Proxy.create({
+                        getPropertyDescriptor: function(anything) {
+                            return {value: 'rw', enumerable: true};
+                        }
+                    })
+                };
+            }
+
+            return {
+                get: function() {
+                    return self.getScopedVariable(obj, name);
+                },
+
+                set: function(value) {
+                    self.setScopedVariable(obj, name, value);
+                }
+            };
+        };
+        handler.getPropertyDescriptor = handler.getOwnPropertyDescriptor;
+        return Proxy.create(handler);
+    },
+
     initialize: function()
     {
         if (FBTrace.DBG_FIRECLOSURE)
