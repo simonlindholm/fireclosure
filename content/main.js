@@ -98,8 +98,8 @@ var FireClosure =
         if (!this.initUtils())
             return [];
 
+        var ret = [];
         try {
-            var ret = [];
             for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
                 next = this.utils.getParentScope(sc);
                 if (sc === next) {
@@ -122,31 +122,54 @@ var FireClosure =
 
                 ret.push(part);
             }
-            return ret;
         }
         catch(e) {
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; getScopedVariablesFromFunction failed", e);
-            return [];
         }
+        return ret;
+    },
+
+    hasInterestingScope: function(obj)
+    {
+        if (!this.initUtils())
+            return true;
+        try {
+            var scope = this.utils.getScope(obj);
+            if (!scope)
+                return false;
+            var next = this.utils.getParentScope(scope);
+            return (next && scope !== next);
+        }
+        catch(e) {
+            if (FBTrace.DBG_FIRECLOSURE)
+                FBTrace.sysout("FireClosure; hasInterestingScope failed", e);
+        }
+        return false;
     },
 
     generalize: function(functionSpecific, defaultValue)
     {
+        var self = this;
         return function(obj) {
             if (typeof obj === 'function') {
                 return functionSpecific.apply(this, arguments);
             }
             else {
                 for (var a in obj) {
-                    // We assume that the first function found is interpreted,
-                    // is backed by a JSScript, and shares the same scope as 'obj'.
+                    // We assume that the first enumerable member function
+                    // that is in a scope at all (interpreted, JSScript-backed,
+                    // without optimized-away scope) shares this scope with
+                    // 'obj'.
+
                     var f = obj[a];
-                    if (typeof f === 'function') {
-                        var args = [].slice.call(arguments);
-                        args[0] = f;
-                        return functionSpecific.apply(this, args);
-                    }
+                    if (typeof f !== 'function')
+                        continue;
+                    if (!self.hasInterestingScope(f))
+                        continue;
+                    var args = [].slice.call(arguments);
+                    args[0] = f;
+                    return functionSpecific.apply(this, args);
                 }
                 return defaultValue;
             }
