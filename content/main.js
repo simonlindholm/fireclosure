@@ -109,7 +109,12 @@ var FireClosure =
 
                 var part = [];
                 for (var mem in sc) {
-                    part.push(mem);
+                    // Add a member to the list only if it is not 'undefined',
+                    // because that usually means it's optimized away. (For
+                    // whatever reason, the variable names still exist; only
+                    // the values disappear.)
+                    if (sc[mem] !== undefined)
+                        part.push(mem);
                 }
 
                 if (part.indexOf("_scopedVars") !== -1 &&
