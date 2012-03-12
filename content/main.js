@@ -43,14 +43,13 @@ var FireClosure =
             return undefined;
 
         try {
-            var hasP = Object.prototype.hasOwnProperty;
             for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
                 var next = this.utils.getParentScope(sc);
                 if (sc === next) {
                     // Topmost scope, break out of the loop.
                     break;
                 }
-                if (hasP.call(sc, mem)) return sc[mem];
+                if (mem in sc) return sc[mem];
             }
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; getScopedVariableFromFunction didn't find anything");
@@ -70,14 +69,13 @@ var FireClosure =
             return;
 
         try {
-            var hasP = Object.prototype.hasOwnProperty;
             for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
                 var next = this.utils.getParentScope(sc);
                 if (sc === next) {
                     // Topmost scope, break out of the loop.
                     break;
                 }
-                if (hasP.call(sc, mem)) {
+                if (mem in sc) {
                     sc[mem] = to;
                     return;
                 }
