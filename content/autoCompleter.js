@@ -600,13 +600,13 @@ Firebug.JSAutoCompleter.transformPrivVarExpr = function(expr)
         var end = sexpr.indexOf(".%", search);
         if (end === -1) break;
         var start = getExpressionOffset(sexpr, end);
-        expr = expr.substr(0, start) + "_FirebugCommandLine._scopedVars(" +
+        expr = expr.substr(0, start) + "_scopedVars(" +
             expr.substring(start, end) + ")." +
             expr.substr(end+2);
-        sexpr = sexpr.substr(0, start) + "_FirebugCommandLine._scopedVars(" +
+        sexpr = sexpr.substr(0, start) + "_scopedVars(" +
             sexpr.substring(start, end) + ")." +
             sexpr.substr(end+2);
-        search = end + "_FirebugCommandLine._scopedVars().".length;
+        search = end + "_scopedVars().".length;
     }
     return expr;
 };
