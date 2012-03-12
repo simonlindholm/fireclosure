@@ -23,7 +23,6 @@
         <copy todir="${build.dir}/defaults"> <fileset dir="defaults"/> </copy>
         <copy todir="${build.dir}/chrome"> <fileset dir="chrome"/> </copy>
         <copy todir="${build.dir}/components"> <fileset dir="components"/> </copy>
-        <copy todir="${build.dir}/platform"> <fileset dir="platform"/> </copy>
         <copy todir="${build.dir}/bin-src"> <fileset dir="bin-src"/> </copy>
 
         <!-- Copy install.rdf with updated release version info -->
