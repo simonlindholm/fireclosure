@@ -105,6 +105,13 @@ var FireClosure =
                     break;
                 }
 
+                if ("_scopedVars" in sc && "traceCalls" in sc) {
+                    // Almost certainly the with(_FirebugCommandLine) block,
+                    // which is at the top of the scope chain on objects
+                    // defined through the console. Hide it for a nicer display.
+                    break;
+                }
+
                 var part = [];
                 for (var mem in sc) {
                     // Add a member to the list only if it is not 'undefined',
@@ -113,14 +120,6 @@ var FireClosure =
                     // the values disappear.)
                     if (sc[mem] !== undefined)
                         part.push(mem);
-                }
-
-                if (part.indexOf("_scopedVars") !== -1 &&
-                    part.indexOf("traceCalls") !== -1) {
-                    // Almost certainly the with(_FirebugCommandLine) block,
-                    // which is at the top of the scope chain on objects
-                    // defined through the console. Hide it for a nicer display.
-                    break;
                 }
 
                 ret.push(part);
