@@ -1,4 +1,4 @@
-content  fireclosure content/ contentaccessible=yes
+content  fireclosure content/
 skin     fireclosure classic/1.0   chrome/skin/classic/
 
 interfaces components/iutil.xpt
