@@ -24,7 +24,7 @@ nsFireClosureUtils::GetParentScope(const JS::Value& val, JSContext* cx, JS::Valu
 
     JSObject* scope = 0;
     {
-        // Enter the object's compartment; this might be necessary.
+        // Enter 'unwrapped's compartment; I think this is necessary.
         JSAutoEnterCompartment ae;
         if (!ae.enter(fakeCx, unwrapped)) {
             return NS_ERROR_FAILURE;
@@ -62,7 +62,6 @@ nsFireClosureUtils::GetScope(const JS::Value& val, JSContext* cx, JS::Value* out
 
     JSObject* scope = 0;
     {
-        // Enter 'unwrapped's compartment; I think this is necessary.
         JSAutoEnterCompartment ae;
         if (!ae.enter(fakeCx, unwrapped)) {
             return NS_ERROR_FAILURE;

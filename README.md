@@ -12,8 +12,8 @@ function A() {
     this.getter = function() {
         return priv;
     };
-    this.setter = function() {
-        return priv;
+    this.setter = function(x) {
+        priv = x;
     };
 }
 a = new A;
@@ -24,7 +24,7 @@ Caveats
 -------
 - Firefox often [optimizes away closures or variables](https://developer.mozilla.org/En/SpiderMonkey/Internals/Functions#Script_functions). For debugging, you can temporarily add some `eval`s around the relevant places in the code to make this less of a problem (also makes your code less performant).
 - Being a proof-of-concept, little thought has been given to security. It is very likely that this opens potential security holes for malicious websites. (Will be fixed, some day.)
-- It currently doesn't work when stopped on a breakpoint. (Waiting on [issue 5321](http://code.google.com/p/fbug/issues/detail?id=5321).)
+- It currently doesn't work when stopped on a breakpoint. (Waiting on Firebug [issue 5321](http://code.google.com/p/fbug/issues/detail?id=5321).)
 
 Building
 --------
