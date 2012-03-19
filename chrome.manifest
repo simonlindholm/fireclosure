@@ -1,7 +1,4 @@
 content  fireclosure content/
 skin     fireclosure classic/1.0   chrome/skin/classic/
 
-interfaces components/iutil.xpt
-binary-component components/Linux_x86-gcc3/12.0a2/fcutils.so ABI=Linux_x86-gcc3 platformversion=12.0a2
-
 overlay chrome://firebug/content/firebugOverlay.xul   chrome://fireclosure/content/mainOverlay.xul

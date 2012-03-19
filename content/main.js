@@ -8,166 +8,153 @@ function(FBTrace, Module) {
 
 var FireClosure =
 {
-    gotUtils: false,
-    utils: null,
+    hasInit: false,
+    dbg: null,
 
-    initUtils: function()
+    getDebuggerGlobal: function(global)
     {
-        if (!this.gotUtils) {
-            this.gotUtils = true;
+        if (!this.hasInit) {
+            this.hasInit = true;
             var {classes: Cc, interfaces: Ci} = Components;
-            var cl = Cc['@simonsoftware.se/nsFireClosureUtils;1'];
-            if (cl) {
-                try {
-                    var inst = cl.createInstance();
-                    this.utils = inst.QueryInterface(Ci.nsIFireClosureUtils);
-                    if (!this.utils)
-                        throw new Error("QI failed.");
+            try {
+                var cl = Cc['@mozilla.org/jsdebugger;1'];
+                var inst = cl.createInstance();
+                var dbg = inst.QueryInterface(Ci.IJSDebugger);
+                dbg.addClass();
+
+                // Monkey-patch Debugger some.
+                if (!Debugger.Object.prototype.getProperty) {
+                    Debugger.Object.prototype.getProperty = function(prop) {
+                        var pd = this.getOwnPropertyDescriptor(prop);
+                        if (!pd)
+                            return undefined;
+                        if (pd.get || pd.set)
+                            return undefined; // or throw a DebuggeeWouldRun, but whatever
+                        return pd.value;
+                    };
                 }
-                catch(e) {
-                    if (FBTrace.DBG_FIRECLOSURE)
-                        FBTrace.sysout("FireClosure; binary component initialization failed", e);
+                if (!Debugger.Object.prototype.setProperty) {
+                    Debugger.Object.prototype.setProperty = function(prop, value) {
+                        var pd = this.getOwnPropertyDescriptor(prop);
+                        if (!pd) {
+                            pd = { writable: true, configurable: true, enumerable: true };
+                        }
+                        else {
+                            if (pd.set)
+                                return undefined; // or throw a DebuggeeWouldRun, but whatever
+                            if (pd.get || !pd.writable)
+                                return undefined; // or throw an error, but whatever
+                        }
+                        pd.value = value;
+                        this.defineProperty(prop, pd);
+                    };
                 }
-            }
-            else {
+
+                this.dbg = new Debugger;
+                this.dbg.enabled = false;
                 if (FBTrace.DBG_FIRECLOSURE)
-                    FBTrace.sysout("FireClosure; no binary component available");
+                    FBTrace.sysout("FireClosure; got debugger", this.dbg);
+            }
+            catch(e) {
+                if (FBTrace.DBG_FIRECLOSURE)
+                    FBTrace.sysout("FireClosure; debugger initialization failed", e);
             }
         }
-        return !!this.utils;
+
+        if (!this.dbg)
+            return null;
+        var dglobal = this.dbg.addDebuggee(global);
+        return dglobal;
     },
 
-    getScopedVariableFromFunction: function(obj, mem)
+    getScopedVariableF: function(obj, mem)
     {
-        if (!this.initUtils())
-            return undefined;
-
         try {
-            for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
-                var next = this.utils.getParentScope(sc);
-                if (sc === next) {
-                    // Topmost scope, break out of the loop.
-                    break;
-                }
-                if (mem in sc) return sc[mem];
-            }
+            var env = obj.environment.find(mem);
+            if (env)
+                return env.getVariable(mem);
             if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; getScopedVariableFromFunction didn't find anything");
+                FBTrace.sysout("FireClosure; getScopedVariableF didn't find anything");
         }
         catch(e) {
             if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; getScopedVariableFromFunction failed", e);
+                FBTrace.sysout("FireClosure; getScopedVariableF failed", e);
         }
 
         // Nothing found, for whatever reason.
         return undefined;
     },
 
-    setScopedVariableFromFunction: function(obj, mem, to)
+    setScopedVariableF: function(obj, mem, to)
     {
-        if (!this.initUtils())
-            return;
-
         try {
-            for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
-                var next = this.utils.getParentScope(sc);
-                if (sc === next) {
-                    // Topmost scope, break out of the loop.
-                    break;
-                }
-                if (mem in sc) {
-                    sc[mem] = to;
-                    return;
-                }
+            var env = obj.environment.find(mem);
+            if (env) {
+                env.setVariable(mem, to);
+                return;
             }
             if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; setScopedVariableFromFunction didn't find anything");
+                FBTrace.sysout("FireClosure; setScopedVariableF didn't find anything");
         }
         catch(e) {
             if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; setScopedVariableFromFunction failed", e);
+                FBTrace.sysout("FireClosure; setScopedVariableF failed", e);
             throw e;
         }
-        throw new Error("Can't set non-existent properties.");
+        throw new Error("Can't set non-existent closure variables.");
     },
 
-    getScopedVariablesFromFunction: function(obj)
+    getScopedVariablesF: function(obj)
     {
-        if (!this.initUtils())
-            return [];
-
         var ret = [];
         try {
-            for (var sc = this.utils.getScope(obj), next; sc; sc = next) {
-                next = this.utils.getParentScope(sc);
-                if (sc === next) {
-                    // Topmost scope, break out of the loop.
-                    break;
-                }
-
-                if ("_scopedVars" in sc && "traceCalls" in sc) {
+            for (var sc = obj.environment; sc; sc = sc.parent) {
+                if ((sc.type === "object" || sc.type === "with") // "with" is unimplemented
+                        && sc.getVariable("_scopedVars")) {
                     // Almost certainly the with(_FirebugCommandLine) block,
                     // which is at the top of the scope chain on objects
                     // defined through the console. Hide it for a nicer display.
                     break;
                 }
-
-                var part = [];
-                for (var mem in sc) {
-                    // Add a member to the list only if it is not 'undefined',
-                    // because that usually means it's optimized away. (For
-                    // whatever reason, the variable names still exist; only
-                    // the values disappear.)
-                    if (sc[mem] !== undefined)
-                        part.push(mem);
+                if (sc.type === "object" && sc.getVariable("Object")) {
+                    // Almost certainly the window object, which we don't need.
+                    break;
                 }
-
-                ret.push(part);
+                ret.push(sc.names());
             }
         }
         catch(e) {
             if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; getScopedVariablesFromFunction failed", e);
+                FBTrace.sysout("FireClosure; getScopedVariablesF failed", e);
         }
         return ret;
     },
 
     hasInterestingScope: function(obj)
     {
-        if (!this.initUtils())
-            return true;
-        try {
-            var scope = this.utils.getScope(obj);
-            if (!scope)
-                return false;
-            var next = this.utils.getParentScope(scope);
-            return (next && scope !== next);
-        }
-        catch(e) {
-            if (FBTrace.DBG_FIRECLOSURE)
-                FBTrace.sysout("FireClosure; hasInterestingScope failed", e);
-        }
-        return false;
+        var env = obj.environment;
+        return env && env.type !== "object";
     },
 
-    generalize: function(functionSpecific, defaultValue)
+    generalize: function(functionName, defaultValue)
     {
         var self = this;
-        return function(obj) {
-            if (typeof obj === 'function') {
+        var functionSpecific = this[functionName + 'F'];
+        var general = this[functionName + 'A'] = function(obj) {
+            if (obj.environment) {
                 return functionSpecific.apply(this, arguments);
             }
             else {
-                for (var a in obj) {
-                    // We assume that the first enumerable member function
-                    // that is in a scope at all (interpreted, JSScript-backed,
-                    // without optimized-away scope) shares this scope with
-                    // 'obj'.
+                var names = obj.getOwnPropertyNames();
+                for (var i = 0; i < names.length; ++i) {
+                    // We assume that the first own member function that is in
+                    // a scope at all (interpreted, JSScript-backed, without
+                    // optimized-away scope) shares this scope with 'obj'.
+                    // TODO: Check also enumerable properties of the object's
+                    // prototype.
 
-                    var f = obj[a];
-                    if (typeof f !== 'function')
-                        continue;
-                    if (!self.hasInterestingScope(f))
+                    var f = obj.getProperty(names[i]);
+                    if (!f || !self.hasInterestingScope(f))
                         continue;
                     var args = [].slice.call(arguments);
                     args[0] = f;
@@ -176,10 +163,33 @@ var FireClosure =
                 return defaultValue;
             }
         };
+
+        this[functionName] = function(global, obj /*, ... */) {
+            var dglobal = self.getDebuggerGlobal(global);
+            if (!dglobal)
+                return defaultValue;
+
+            obj = dglobal.makeDebuggeeValue(obj);
+            if (!obj || typeof obj !== 'object')
+                return defaultValue;
+
+            var args = [].slice.call(arguments, 1);
+            args[0] = obj;
+            return general.apply(this, args);
+        };
     },
 
-    getScopedVarsWrapper: function(obj)
+    getScopedVarsWrapper: function(global, obj)
     {
+        var dglobal = this.getDebuggerGlobal(global);
+        if (!dglobal)
+            throw new Error("Debugger not available.");
+
+        obj = dglobal.makeDebuggeeValue(obj);
+        if (!obj || typeof obj !== 'object')
+            throw new Error("Tried to get scope of non-object.");
+
+        // Return a wrapper for its scoped variables.
         var self = this;
         var handler = {};
         handler.getOwnPropertyDescriptor = function(name) {
@@ -196,11 +206,20 @@ var FireClosure =
 
             return {
                 get: function() {
-                    return self.getScopedVariable(obj, name);
+                    try {
+                        var ret = self.getScopedVariableA(obj, name);
+                        dglobal.setProperty('_getScopeRet', ret);
+                        return global._getScopeRet;
+                    }
+                    catch(e) {
+                        if (FBTrace.DBG_FIRECLOSURE)
+                            FBTrace.sysout("FireClosure; failed to return value from getter", e);
+                    }
                 },
 
                 set: function(value) {
-                    self.setScopedVariable(obj, name, value);
+                    value = dglobal.makeDebuggeeValue(value);
+                    self.setScopedVariableA(obj, name, value);
                 }
             };
         };
@@ -213,9 +232,9 @@ var FireClosure =
         if (FBTrace.DBG_FIRECLOSURE)
             FBTrace.sysout("FireClosure; extension initialize");
 
-        this.getScopedVariables = this.generalize(this.getScopedVariablesFromFunction, []);
-        this.getScopedVariable = this.generalize(this.getScopedVariableFromFunction, undefined);
-        this.setScopedVariable = this.generalize(this.setScopedVariableFromFunction, undefined);
+        this.generalize('getScopedVariables', []);
+        this.generalize('getScopedVariable', undefined);
+        this.generalize('setScopedVariable', undefined);
     },
 
     shutdown: function()

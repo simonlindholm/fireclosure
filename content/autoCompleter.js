@@ -1278,12 +1278,20 @@ function sortUnique(ar)
     return ret;
 }
 
-function hasScopedVariables(obj)
+function hasScopedVariables(context, obj)
 {
-    if (typeof obj !== "object" && typeof obj !== "function")
+    try {
+        if (typeof obj !== "object" && typeof obj !== "function")
+            return false;
+        var w = context.window.wrappedJSObject;
+        var parts = Firebug.FireClosure.getScopedVariables(w, obj);
+        return parts.some(function(part) { return part.length > 0; });
+    }
+    catch(e) {
+        if (FBTrace.DBG_FIRECLOSURE)
+            FBTrace.sysout("FireClosure; failed to check for closed over variables", e);
         return false;
-    var parts = Firebug.FireClosure.getScopedVariables(obj);
-    return parts.some(function(part) { return part.length > 0; });
+    }
 }
 
 function propChainBuildComplete(out, context, tempExpr, result)
@@ -1296,7 +1304,8 @@ function propChainBuildComplete(out, context, tempExpr, result)
             return;
         if (typeof result !== "object" && typeof result !== "function")
             return;
-        var parts = Firebug.FireClosure.getScopedVariables(result);
+        var w = context.window.wrappedJSObject;
+        var parts = Firebug.FireClosure.getScopedVariables(w, result);
         complete = Array.prototype.concat.apply([], parts);
         out.complete = sortUnique(complete);
         return;
@@ -1325,7 +1334,7 @@ function propChainBuildComplete(out, context, tempExpr, result)
         else
             complete = Arr.keys(result);
         command = getTypeExtractionExpression(tempExpr.command);
-        out.hasPriv = hasScopedVariables(result);
+        out.hasPriv = hasScopedVariables(context, result);
     }
 
     var done = function()

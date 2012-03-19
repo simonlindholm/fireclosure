@@ -41,10 +41,11 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
         // Add the _scopedVars helper to the command line.
         var cr = CommandLineExposed.createFirebugCommandLine;
-        CommandLineExposed.createFirebugCommandLine = function() {
+        CommandLineExposed.createFirebugCommandLine = function(context, win) {
             var cmd = cr.apply(CommandLineExposed, arguments);
+            var w = win.wrappedJSObject;
             cmd._scopedVars = function(obj) {
-                return Firebug.FireClosure.getScopedVarsWrapper(obj);
+                return Firebug.FireClosure.getScopedVarsWrapper(w, obj);
             };
             cmd.__exposedProps__['_scopedVars'] = 'r';
             return cmd;
