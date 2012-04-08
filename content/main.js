@@ -22,33 +22,8 @@ var FireClosure =
                 var dbg = inst.QueryInterface(Ci.IJSDebugger);
                 dbg.addClass();
 
-                // Monkey-patch Debugger some.
-                if (!Debugger.Object.prototype.getProperty) {
-                    Debugger.Object.prototype.getProperty = function(prop) {
-                        var pd = this.getOwnPropertyDescriptor(prop);
-                        if (!pd)
-                            return undefined;
-                        if (pd.get || pd.set)
-                            return undefined; // or throw a DebuggeeWouldRun, but whatever
-                        return pd.value;
-                    };
-                }
-                if (!Debugger.Object.prototype.setProperty) {
-                    Debugger.Object.prototype.setProperty = function(prop, value) {
-                        var pd = this.getOwnPropertyDescriptor(prop);
-                        if (!pd) {
-                            pd = { writable: true, configurable: true, enumerable: true };
-                        }
-                        else {
-                            if (pd.set)
-                                return undefined; // or throw a DebuggeeWouldRun, but whatever
-                            if (pd.get || !pd.writable)
-                                return undefined; // or throw an error, but whatever
-                        }
-                        pd.value = value;
-                        this.defineProperty(prop, pd);
-                    };
-                }
+                if (!Debugger.Environment.prototype.getVariable)
+                    throw new Error("Environment.getVariable unavailable (use a more recent build).");
 
                 this.dbg = new Debugger;
                 this.dbg.enabled = false;
@@ -145,20 +120,32 @@ var FireClosure =
                 return functionSpecific.apply(this, arguments);
             }
             else {
-                var names = obj.getOwnPropertyNames();
-                for (var i = 0; i < names.length; ++i) {
-                    // We assume that the first own member function that is in
-                    // a scope at all (interpreted, JSScript-backed, without
-                    // optimized-away scope) shares this scope with 'obj'.
-                    // TODO: Check also enumerable properties of the object's
-                    // prototype.
+                var first = true;
+                for (;;) {
+                    var names = obj.getOwnPropertyNames();
+                    for (var i = 0; i < names.length; ++i) {
+                        // We assume that the first own property, or the first
+                        // enumerable property of the prototype, that is a
+                        // function with some scope (i.e., it is interpreted,
+                        // JSScript-backed, and without optimized-away scope)
+                        // shares this scope with 'obj'.
 
-                    var f = obj.getProperty(names[i]);
-                    if (!f || !self.hasInterestingScope(f))
-                        continue;
-                    var args = [].slice.call(arguments);
-                    args[0] = f;
-                    return functionSpecific.apply(this, args);
+                        var pd = obj.getOwnPropertyDescriptor(names[i]);
+                        if (!pd || pd.get || pd.set || (!first && !pd.enumerable))
+                            continue;
+                        var f = pd.value;
+                        if (!f || !self.hasInterestingScope(f))
+                            continue;
+                        var args = [].slice.call(arguments);
+                        args[0] = f;
+                        return functionSpecific.apply(this, args);
+                    }
+
+                    if (!first)
+                        break;
+                    first = false;
+                    obj = obj.proto;
+                    if (!obj) break;
                 }
                 return defaultValue;
             }
@@ -210,7 +197,7 @@ var FireClosure =
                 get: function() {
                     try {
                         var ret = self.getScopedVariableA(obj, name);
-                        dglobal.setProperty('_getScopeRet', ret);
+                        dglobal.defineProperty('_getScopeRet', { value: ret, writable: true });
                         return global._getScopeRet;
                     }
                     catch(e) {
