@@ -194,10 +194,12 @@ var FireClosure =
         var handler = {};
         handler.getOwnPropertyDescriptor = function(name) {
             if (name === "__exposedProps__") {
-                // Expose everything, rw, through another proxy.
+                // Expose mostly everything, rw, through another proxy.
                 return {
                     value: Proxy.create({
-                        getPropertyDescriptor: function(anything) {
+                        getPropertyDescriptor: function(name) {
+                            if (name === "__exposedProps__" || name === "__proto__")
+                                return;
                             return {value: 'rw', enumerable: true};
                         }
                     })
