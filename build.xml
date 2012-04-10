@@ -10,6 +10,9 @@
     <!-- Clean -->
     <target name="clean">
         <delete dir="${build.dir}"/>
+        <delete>
+            <fileset dir="." includes="fireclosure-*.xpi"/>
+        </delete>
     </target>
 
     <!-- Build -->
