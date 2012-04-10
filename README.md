@@ -2,7 +2,7 @@ FireClosure
 ===========
 [Download](http://simonsoftware.se/other/fb/fireclosure-0.2b2.xpi) (Firefox 14.0a1 and upwards)
 
-FireClosure is an experimental Firebug extension that allows you to access closed-over ("private") variables in JavaScript, without having to mess around with tedious breakpoints.
+FireClosure is a Firebug extension that allows you to access closed-over ("private") variables in JavaScript, without having to mess around with tedious breakpoints.
 
 For instance, given the following code...
 
@@ -19,6 +19,8 @@ function A() {
 a = new A;
 ```
 ... FireClosure makes getting the value of `priv` as easy as `a.%priv`.
+
+You can also access the closures through the DOM panel, under the subheading "(scoped variables)".
 
 Caveats
 -------
