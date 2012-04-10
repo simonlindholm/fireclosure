@@ -160,6 +160,10 @@ var FireClosure =
         };
 
         this[functionName] = function(global, obj /*, ... */) {
+            // Avoid 'window' and 'document' getting associated with closures.
+            if (obj === global || obj === global.document)
+                return defaultValue;
+
             var dglobal = self.getDebuggerGlobal(global);
             if (!dglobal)
                 return defaultValue;
