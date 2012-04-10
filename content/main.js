@@ -2,20 +2,24 @@
 
 define([
     "firebug/lib/trace",
+    "firebug/firebug",
     "fireclosure/module",
 ],
-function(FBTrace, Module) {
+function(FBTrace, Firebug, Module) {
+"use strict";
 
 var FireClosure =
 {
     hasInit: false,
+    dbgc: null,
     dbg: null,
 
     getDebuggerGlobal: function(global)
     {
         if (!this.hasInit) {
             this.hasInit = true;
-            var {classes: Cc, interfaces: Ci} = Components;
+            var Cc = Components.classes;
+            var Ci = Components.interfaces;
             try {
                 var cl = Cc['@mozilla.org/jsdebugger;1'];
                 var inst = cl.createInstance();
@@ -25,7 +29,8 @@ var FireClosure =
                 if (!Debugger.Environment.prototype.getVariable)
                     throw new Error("Environment.getVariable unavailable (use a more recent build).");
 
-                this.dbg = new Debugger;
+                this.dbgc = Debugger;
+                this.dbg = new Debugger();
                 this.dbg.enabled = false;
                 if (FBTrace.DBG_FIRECLOSURE)
                     FBTrace.sysout("FireClosure; got debugger", this.dbg);
@@ -40,6 +45,17 @@ var FireClosure =
             return null;
         var dglobal = this.dbg.addDebuggee(global);
         return dglobal;
+    },
+
+    unwrap: function(global, dglobal, obj)
+    {
+        dglobal.defineProperty('_fireclosureUnwrap', { value: obj, writable: true });
+        return global._fireclosureUnwrap;
+    },
+
+    getScopeF: function(obj)
+    {
+        return obj.environment;
     },
 
     getScopedVariableF: function(obj, mem)
@@ -105,9 +121,8 @@ var FireClosure =
         return ret;
     },
 
-    hasInterestingScope: function(obj)
+    scopeIsInteresting: function(env)
     {
-        var env = obj.environment;
         return env && env.type !== "object";
     },
 
@@ -142,7 +157,7 @@ var FireClosure =
                         if (!pd || pd.get || pd.set || (!first && !pd.enumerable))
                             continue;
                         var f = pd.value;
-                        if (!f || !self.hasInterestingScope(f))
+                        if (!f || !self.scopeIsInteresting(f.environment))
                             continue;
                         var args = [].slice.call(arguments);
                         args[0] = f;
@@ -209,8 +224,7 @@ var FireClosure =
                 get: function() {
                     try {
                         var ret = self.getScopedVariableA(obj, name);
-                        dglobal.defineProperty('_getScopeRet', { value: ret, writable: true });
-                        return global._getScopeRet;
+                        return self.unwrap(global, dglobal, ret);
                     }
                     catch(e) {
                         if (FBTrace.DBG_FIRECLOSURE)
@@ -236,6 +250,7 @@ var FireClosure =
         this.generalize('getScopedVariables', []);
         this.generalize('getScopedVariable', undefined);
         this.generalize('setScopedVariable', undefined);
+        this.generalize('getScope', null);
     },
 
     shutdown: function()

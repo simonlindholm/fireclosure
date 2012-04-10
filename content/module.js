@@ -3,11 +3,15 @@
 define([
     "firebug/lib/object",
     "firebug/lib/trace",
+    "firebug/firebug",
+    "firebug/lib/domplate",
     "firebug/console/commandLine",
     "firebug/console/commandLineExposed",
+    "firebug/dom/domPanel",
     "fireclosure/autoCompleter",
 ],
-function(Obj, FBTrace, CommandLine, CommandLineExposed, AutoCompleter) {
+function(Obj, FBTrace, Firebug, Domplate, CommandLine, CommandLineExposed, DOMPanel, AutoCompleter) {
+"use strict";
 
 // ********************************************************************************************* //
 // Custom Module Implementation
@@ -16,6 +20,113 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 {
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
     // Initialization
+
+    addScopeToMembers: function(members, object, level, scope, name)
+    {
+        var type = "proto";
+        var m = {
+            object: object,
+            name: name,
+            value: scope,
+            type: "proto",
+            rowClass: "memberRow-proto",
+            open: "",
+            order: 0,
+            level: level,
+            indent: level*16,
+            hasChildren: true,
+            tag: ScopeRep.tag,
+            prefix: "",
+            readOnly: true
+        };
+        members.push(m);
+    },
+
+    extendDOMPanel: function()
+    {
+        var oldGetMembers = Firebug.DOMBasePanel.prototype.getMembers;
+        var oldGetObjectView = Firebug.DOMBasePanel.prototype.getObjectView;
+        var self = this;
+
+        function getScopeWrapper(scope) {
+            var FC = Firebug.FireClosure;
+            var win = scope.win, dwin = FC.getDebuggerGlobal(win);
+            return Proxy.create({
+                desc: function(name)
+                {
+                    return {
+                        get: function() {
+                            return FC.unwrap(win, dwin, scope.getVariable(name));
+                        },
+                        set: function(value) {
+                            value = dwin.makeDebuggeeValue(value);
+                            scope.setVariable(name, value);
+                        }
+                    };
+                },
+                getOwnPropertyDescriptor: function(name) { return this.desc(name); },
+                getPropertyDescriptor: function(name) { return this.desc(name); },
+                keys: function()
+                {
+                    return scope.names();
+                },
+                enumerate: function() { return this.keys(); },
+                getOwnPropertyNames: function() { return this.keys(); },
+                getPropertyNames: function() { return this.keys(); }
+            }, null);
+        }
+
+        var newGetMembers = function(object, level, context)
+        {
+            var members = oldGetMembers.apply(this, arguments);
+
+            // Add the object's scope as a pseudo-object at the bottom.
+            // The overridden getObjectView transforms it into something
+            // readable by the rest of Firebug.
+            var isScope = (ScopeRep.supportsObject(object));
+            var scope, scopeName;
+            var win = context && context.window;
+            win = win && win.wrappedJSObject;
+            if (isScope) {
+                scope = object.parent;
+                scopeName = "(parent scope)";
+            }
+            else {
+                scope = Firebug.FireClosure.getScope(win, object);
+                scopeName = "(scoped variables)";
+            }
+            while (scope && !scope.names().length)
+                scope = scope.parent;
+            if (Firebug.FireClosure.scopeIsInteresting(scope)) {
+                scope.win = win;
+                self.addScopeToMembers(members, object, level, scope, scopeName);
+            }
+
+            return members;
+        };
+
+        var newGetObjectView = function(object)
+        {
+            if (ScopeRep.supportsObject(object))
+                return getScopeWrapper(object);
+            return oldGetObjectView(object);
+        };
+
+        // Firebug stupidly does inheritance through copying of properties, so we
+        // have to add the functions to all subclasses of DOMBasePanel we know of.
+        var classes = [
+            Firebug.DOMBasePanel,
+            Firebug.DOMPanel,
+            Firebug.getPanelType('domSide')
+        ];
+        for (var i = 0; i < classes.length; ++i) {
+            var cl = classes[i];
+            cl.prototype.getMembers = newGetMembers;
+            cl.prototype.getObjectView = newGetObjectView;
+        }
+
+        Firebug.registerRep(ScopeRep);
+    },
 
     initialize: function(owner)
     {
@@ -50,6 +161,8 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
             cmd.__exposedProps__['_scopedVars'] = 'r';
             return cmd;
         };
+
+        this.extendDOMPanel();
     },
 
     shutdown: function()
@@ -62,7 +175,34 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
     showPanel: function(browser, panel)
     {
+    }
+});
+
+
+var ScopeRep = Domplate.domplate(Firebug.Rep,
+{
+    tag:
+        Domplate.SPAN(
+            { _repObject: "$object" },
+            "$object|getTitle"
+        ),
+
+    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+    className: "scope",
+
+    getTitle: function(object)
+    {
+        return "[" + object.type + " scope]";
     },
+
+    supportsObject: function(object, type)
+    {
+        var FC = Firebug.FireClosure;
+        if (!FC.dbgc)
+            return false;
+        return object instanceof FC.dbgc.Environment;
+    }
 });
 
 // ********************************************************************************************* //
