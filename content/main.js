@@ -122,7 +122,7 @@ var FireClosure =
             else {
                 var first = true;
                 for (;;) {
-                    var names = obj.getOwnPropertyNames();
+                    var names = obj.getOwnPropertyNames(), pd;
                     for (var i = 0; i < names.length; ++i) {
                         // We assume that the first own property, or the first
                         // enumerable property of the prototype, that is a
@@ -130,7 +130,15 @@ var FireClosure =
                         // JSScript-backed, and without optimized-away scope)
                         // shares this scope with 'obj'.
 
-                        var pd = obj.getOwnPropertyDescriptor(names[i]);
+                        try {
+                            pd = obj.getOwnPropertyDescriptor(names[i]);
+                        }
+                        catch(e) {
+                            // getOwnPropertyDescriptor sometimes fails with
+                            // "Illegal operation on WrappedNative prototype object",
+                            // for instance on [window].proto.gopd('localStorage').
+                            continue;
+                        }
                         if (!pd || pd.get || pd.set || (!first && !pd.enumerable))
                             continue;
                         var f = pd.value;
