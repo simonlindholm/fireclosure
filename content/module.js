@@ -83,23 +83,25 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
             // Add the object's scope as a pseudo-object at the bottom.
             // The overridden getObjectView transforms it into something
             // readable by the rest of Firebug.
-            var isScope = (ScopeRep.supportsObject(object));
-            var scope, scopeName;
             var win = context && context.window;
             win = win && win.wrappedJSObject;
-            if (isScope) {
-                scope = object.parent;
-                scopeName = "(parent scope)";
-            }
-            else {
-                scope = Firebug.FireClosure.getScope(win, object);
-                scopeName = "(scoped variables)";
-            }
-            while (scope && !scope.names().length)
-                scope = scope.parent;
-            if (Firebug.FireClosure.scopeIsInteresting(scope)) {
-                scope.win = win;
-                self.addScopeToMembers(members, object, level, scope, scopeName);
+            if (win) {
+                var isScope = ScopeRep.supportsObject(object);
+                var scope, scopeName;
+                if (isScope) {
+                    scope = object.parent;
+                    scopeName = "(parent scope)";
+                }
+                else {
+                    scope = Firebug.FireClosure.getScope(win, object);
+                    scopeName = "(scoped variables)";
+                }
+                while (scope && !scope.names().length)
+                    scope = scope.parent;
+                if (Firebug.FireClosure.scopeIsInteresting(scope)) {
+                    scope.win = win;
+                    self.addScopeToMembers(members, object, level, scope, scopeName);
+                }
             }
 
             return members;
