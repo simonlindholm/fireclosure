@@ -1,6 +1,6 @@
 FireClosure
 ===========
-[Download](http://simonsoftware.se/other/fb/fireclosure-0.2b2.xpi) (Firefox 14.0a1 and upwards)
+[Download](http://simonsoftware.se/other/fb/fireclosure-0.2b3.xpi) (Firefox 14.0a1 and upwards)
 
 FireClosure is a Firebug extension that allows you to access closed-over ("private") variables in JavaScript, without having to mess around with tedious breakpoints.
 
