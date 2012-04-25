@@ -291,7 +291,10 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
     {
         this.completionBox.value = this.getCompletionBoxValue();
 
-        if (this.showCompletionPopup && this.completions && this.completions.list.length > 1)
+        var nc = (this.completions ?
+            (this.completions.list.length + (this.completionBase.hasScope ? 1 : 0)) :
+            0);
+        if (this.showCompletionPopup && nc > 1)
             this.popupCandidates();
         else
             this.closePopup();
