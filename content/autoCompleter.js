@@ -591,7 +591,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
  * delegates to _FirebugCommandLine.
  * Used only in module.js, but autoCompleter.js has so many nice helper functions.
  */
-Firebug.JSAutoCompleter.transformScopeExpr = function(expr)
+Firebug.JSAutoCompleter.transformScopeExpr = function(expr, fname)
 {
     var sexpr = simplifyExpr(expr);
     if (!sexpr) return expr;
@@ -600,13 +600,13 @@ Firebug.JSAutoCompleter.transformScopeExpr = function(expr)
         var end = sexpr.indexOf(".%", search);
         if (end === -1) break;
         var start = getExpressionOffset(sexpr, end);
-        expr = expr.substr(0, start) + "_scopedVars(" +
+        expr = expr.substr(0, start) + fname + "(" +
             expr.substring(start, end) + ")." +
             expr.substr(end+2);
-        sexpr = sexpr.substr(0, start) + "_scopedVars(" +
+        sexpr = sexpr.substr(0, start) + fname + "(" +
             sexpr.substring(start, end) + ")." +
             sexpr.substr(end+2);
-        search = end + "_scopedVars().".length;
+        search = end + fname + "().".length;
     }
     return expr;
 };

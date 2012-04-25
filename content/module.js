@@ -137,19 +137,62 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         if (FBTrace.DBG_FIRECLOSURE)
             FBTrace.sysout("FireClosure; Module.initialize");
 
-        // Override the event-passing evaluator by one that handles .% (it's
-        // mainly that one which gets used, and the debugger one does not
-        // currently inject the command line. (TODO: Change this?)
-        var ev = CommandLine.evaluateByEventPassing;
+        // Override the event-passing evaluator (used in the command line) by
+        // one that handles .%.
+        var origEv = CommandLine.evaluateByEventPassing;
         CommandLine.evaluateByEventPassing = function(expr) {
             var args = [].slice.call(arguments);
-            args[0] = AutoCompleter.transformScopeExpr(expr);
+            args[0] = AutoCompleter.transformScopeExpr(expr, '_scopedVars');
             if (FBTrace.DBG_FIRECLOSURE && args[0] !== expr) {
                 FBTrace.sysout("FireClosure; transforming expression: `" +
                         expr + "` -> `" +
                         args[0] + "`");
             }
-            return ev.apply(CommandLine, args);
+            return origEv.apply(CommandLine, args);
+        };
+
+        // Override the debug evaluator by one that handles .%. This differs
+        // from the above in that this one cannot inject the command line
+        // because with statements might be invalid in strict mode.
+        var origDebug = CommandLine.evaluateInDebugFrame;
+        CommandLine.evaluateInDebugFrame = function(expr, context, thisExpr, targetWin) {
+            var args = [].slice.call(arguments);
+            var fname = '__fb_scopedVars';
+
+            args[0] = AutoCompleter.transformScopeExpr(expr, fname);
+            var inj = false, win;
+            if (args[0] !== expr) {
+                if (FBTrace.DBG_FIRECLOSURE) {
+                    FBTrace.sysout("FireClosure; transforming expression in debug mode: `" +
+                            expr + "` -> `" +
+                            args[0] + "`");
+                }
+                inj = true;
+            }
+
+            if (inj) {
+                try {
+                    win = targetWin || context.baseWindow || context.window;
+                    win = win.wrappedJSObject;
+                    win[fname] = function(obj) {
+                        return Firebug.FireClosure.getScopedVarsWrapper(win, obj);
+                    };
+                }
+                catch(e) {
+                    if (FBTrace.DBG_FIRECLOSURE)
+                        FBTrace.sysout("FireClosure; failed to inject " + fname, e);
+                }
+            }
+
+            try {
+                return origDebug.apply(CommandLine, args);
+            }
+            finally {
+                if (inj) {
+                    try { delete win[fname]; }
+                    catch(e) {}
+                }
+            }
         };
 
         // Add the _scopedVars helper to the command line.
