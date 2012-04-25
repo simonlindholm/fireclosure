@@ -143,7 +143,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         var ev = CommandLine.evaluateByEventPassing;
         CommandLine.evaluateByEventPassing = function(expr) {
             var args = [].slice.call(arguments);
-            args[0] = AutoCompleter.transformPrivVarExpr(expr);
+            args[0] = AutoCompleter.transformScopeExpr(expr);
             if (FBTrace.DBG_FIRECLOSURE && args[0] !== expr) {
                 FBTrace.sysout("FireClosure; transforming expression: `" +
                         expr + "` -> `" +

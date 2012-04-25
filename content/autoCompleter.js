@@ -177,7 +177,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         {
             this.completionBase.expr = preExpr;
             this.completionBase.candidates = [];
-            this.completionBase.hasPriv = false;
+            this.completionBase.hasScope = false;
             autoCompleteEval(this.completionBase, context, preExpr, spreExpr,
                 this.options.includeCurrentScope);
         }
@@ -448,7 +448,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         if (this.completions.prefix == '' &&
             !/\[['"]/.test(this.completionBase.expr.slice(-2)) &&
             this.completionBase.expr.slice(-2) !== ".%" &&
-            this.completionBase.hasPriv)
+            this.completionBase.hasScope)
         {
             ++listSize;
         }
@@ -482,7 +482,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
             if (i == this.completions.list.length) {
                 var text = this.completionPopup.ownerDocument.
                     createElementNS("http://www.w3.org/1999/xhtml","span");
-                text.innerHTML = "% for private members...";
+                text.innerHTML = "% for scope members...";
                 text.style.fontStyle = "italic";
                 text.style.paddingLeft = "3px";
                 text.style.fontSize = "90%";
@@ -591,7 +591,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
  * delegates to _FirebugCommandLine.
  * Used only in module.js, but autoCompleter.js has so many nice helper functions.
  */
-Firebug.JSAutoCompleter.transformPrivVarExpr = function(expr)
+Firebug.JSAutoCompleter.transformScopeExpr = function(expr)
 {
     var sexpr = simplifyExpr(expr);
     if (!sexpr) return expr;
@@ -975,7 +975,7 @@ function adjustCompletionOnAccept(preParsed, preExpr, property)
     if (/^\[['"]$/.test(preExpr.slice(-2)))
         return res;
 
-    // Nor completions of private variables.
+    // Nor completions of scoped variables.
     if (preExpr.slice(-2) === ".%")
         return res;
 
@@ -1197,7 +1197,7 @@ var AutoCompletionKnownTypes = {
 
 var LinkType = {
     "PROPERTY": 0,
-    "PRIV_PROP": 1,
+    "SCOPED_VARS": 1,
     "INDEX": 2,
     "CALL": 3,
     "SAFECALL": 4,
@@ -1298,7 +1298,7 @@ function propChainBuildComplete(out, context, tempExpr, result)
 {
     var complete = null, command = null;
 
-    if (out.privCompletion)
+    if (out.scopeCompletion)
     {
         if (tempExpr.fake)
             return;
@@ -1334,7 +1334,7 @@ function propChainBuildComplete(out, context, tempExpr, result)
         else
             complete = Arr.keys(result);
         command = getTypeExtractionExpression(tempExpr.command);
-        out.hasPriv = hasScopedVariables(context, result);
+        out.hasScope = hasScopedVariables(context, result);
     }
 
     var done = function()
@@ -1431,7 +1431,7 @@ function evalPropChainStep(step, tempExpr, evalChain, out, context)
                 tempExpr.thisCommand = tempExpr.command;
                 tempExpr.command += "." + link.name;
             }
-            else if (type === LinkType.PRIV_PROP)
+            else if (type === LinkType.SCOPED_VARS)
             {
                 tempExpr.thisCommand = "window";
                 tempExpr.command += ".%" + link.name;
@@ -1626,13 +1626,13 @@ function evalPropChain(out, preExpr, origExpr, context)
             if (ch === ".")
             {
                 // Property access
-                var priv = (preExpr.charAt(linkStart+1) === "%");
-                linkStart += (priv ? 2 : 1);
+                var scope = (preExpr.charAt(linkStart+1) === "%");
+                linkStart += (scope ? 2 : 1);
                 var nextLink = eatProp(preExpr, linkStart);
                 lastProp = preExpr.substring(linkStart, nextLink);
                 linkStart = nextLink;
                 evalChain.push({
-                    "type": (priv ? LinkType.PRIV_PROP : LinkType.PROPERTY),
+                    "type": (scope ? LinkType.SCOPED_VARS : LinkType.PROPERTY),
                     "name": lastProp
                 });
             }
@@ -1687,7 +1687,7 @@ function autoCompleteEval(base, context, preExpr, spreExpr, includeCurrentScope)
     var out = {};
 
     out.complete = [];
-    out.hasPriv = false;
+    out.hasScope = false;
 
     try
     {
@@ -1698,7 +1698,7 @@ function autoCompleteEval(base, context, preExpr, spreExpr, includeCurrentScope)
             // In case of array indexing, remove the bracket and set a flag to
             // escape completions.
             out.indexCompletion = false;
-            out.privCompletion = false;
+            out.scopeCompletion = false;
             var len = spreExpr.length;
             if (len >= 2 && spreExpr[len-2] === "[" && spreExpr[len-1] === '"')
             {
@@ -1708,7 +1708,7 @@ function autoCompleteEval(base, context, preExpr, spreExpr, includeCurrentScope)
             }
             else if (spreExpr.slice(-2) === ".%")
             {
-                out.privCompletion = true;
+                out.scopeCompletion = true;
                 len -= 2;
             }
             else
@@ -1762,7 +1762,7 @@ function autoCompleteEval(base, context, preExpr, spreExpr, includeCurrentScope)
     }
 
     base.candidates = out.complete;
-    base.hasPriv = out.hasPriv;
+    base.hasScope = out.hasScope;
 }
 
 var reValidJSToken = /^[A-Za-z_$][A-Za-z_$0-9]*$/;
