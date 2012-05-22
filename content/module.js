@@ -244,9 +244,9 @@ var ScopeRep = Domplate.domplate(Firebug.Rep,
     supportsObject: function(object, type)
     {
         var FC = Firebug.FireClosure;
-        if (!FC.dbgc)
+        if (!FC.Debugger)
             return false;
-        return object instanceof FC.dbgc.Environment;
+        return object instanceof FC.Debugger.Environment;
     }
 });
 

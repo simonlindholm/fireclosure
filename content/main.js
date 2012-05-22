@@ -11,26 +11,23 @@ function(FBTrace, Firebug, Module) {
 var FireClosure =
 {
     hasInit: false,
-    dbgc: null,
+    Debugger: null,
     dbg: null,
 
     getDebuggerGlobal: function(global)
     {
         if (!this.hasInit) {
             this.hasInit = true;
-            var Cc = Components.classes;
-            var Ci = Components.interfaces;
             try {
-                var cl = Cc['@mozilla.org/jsdebugger;1'];
-                var inst = cl.createInstance();
-                var dbg = inst.QueryInterface(Ci.IJSDebugger);
-                dbg.addClass();
+                Components.utils.import("resource://gre/modules/jsdebugger.jsm");
+                if (window.addDebuggerToGlobal)
+                    window.addDebuggerToGlobal(window);
+                this.Debugger = Debugger;
 
-                if (!Debugger.Environment.prototype.getVariable)
-                    throw new Error("Environment.getVariable unavailable (use a more recent build).");
+                if (!this.Debugger.Environment.prototype.getVariable)
+                    throw new Error("Environment.getVariable unavailable (update your browser).");
 
-                this.dbgc = Debugger;
-                this.dbg = new Debugger();
+                this.dbg = new this.Debugger();
                 this.dbg.enabled = false;
                 if (FBTrace.DBG_FIRECLOSURE)
                     FBTrace.sysout("FireClosure; got debugger", this.dbg);
