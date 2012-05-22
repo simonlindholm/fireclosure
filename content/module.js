@@ -6,11 +6,10 @@ define([
     "firebug/firebug",
     "firebug/lib/domplate",
     "firebug/console/commandLine",
-    "firebug/console/commandLineExposed",
     "firebug/dom/domPanel",
     "fireclosure/autoCompleter",
 ],
-function(Obj, FBTrace, Firebug, Domplate, CommandLine, CommandLineExposed, DOMPanel, AutoCompleter) {
+function(Obj, FBTrace, Firebug, Domplate, CommandLine, DOMPanel, AutoCompleter) {
 "use strict";
 
 // ********************************************************************************************* //
@@ -137,33 +136,21 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         if (FBTrace.DBG_FIRECLOSURE)
             FBTrace.sysout("FireClosure; Module.initialize");
 
-        // Override the event-passing evaluator (used in the command line) by
-        // one that handles .%.
-        var origEv = CommandLine.evaluateByEventPassing;
-        CommandLine.evaluateByEventPassing = function(expr) {
+        // Override the evaluator by one that handles .%. This is done by
+        // sticking a function for getting scope on the global object, where it
+        // is easily accessible even in cases when there is no command line
+        // (e.g., issue 5321). If the expression doesn't use .%, don't inject
+        // the function, to avoid leaking capabilities into arbitrary web pages.
+        var origEv = CommandLine.evaluate;
+        CommandLine.evaluate = function(expr, context, thisValue, targetWin) {
             var args = [].slice.call(arguments);
-            args[0] = AutoCompleter.transformScopeExpr(expr, '_scopedVars');
-            if (FBTrace.DBG_FIRECLOSURE && args[0] !== expr) {
-                FBTrace.sysout("FireClosure; transforming expression: `" +
-                        expr + "` -> `" +
-                        args[0] + "`");
-            }
-            return origEv.apply(CommandLine, args);
-        };
-
-        // Override the debug evaluator by one that handles .%. This differs
-        // from the above in that this one cannot inject the command line
-        // because with statements might be invalid in strict mode.
-        var origDebug = CommandLine.evaluateInDebugFrame;
-        CommandLine.evaluateInDebugFrame = function(expr, context, thisExpr, targetWin) {
-            var args = [].slice.call(arguments);
-            var fname = '__fb_scopedVars';
+            var fname = "__fb_scopedVars";
 
             args[0] = AutoCompleter.transformScopeExpr(expr, fname);
             var inj = false, win;
             if (args[0] !== expr) {
                 if (FBTrace.DBG_FIRECLOSURE) {
-                    FBTrace.sysout("FireClosure; transforming expression in debug mode: `" +
+                    FBTrace.sysout("FireClosure; transforming expression: `" +
                             expr + "` -> `" +
                             args[0] + "`");
                 }
@@ -185,7 +172,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
             }
 
             try {
-                return origDebug.apply(CommandLine, args);
+                return origEv.apply(CommandLine, args);
             }
             finally {
                 if (inj) {
@@ -193,18 +180,6 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
                     catch (e) {}
                 }
             }
-        };
-
-        // Add the _scopedVars helper to the command line.
-        var cr = CommandLineExposed.createFirebugCommandLine;
-        CommandLineExposed.createFirebugCommandLine = function(context, win) {
-            var cmd = cr.apply(CommandLineExposed, arguments);
-            var w = win.wrappedJSObject;
-            cmd._scopedVars = function(obj) {
-                return Firebug.FireClosure.getScopedVarsWrapper(w, obj);
-            };
-            cmd.__exposedProps__['_scopedVars'] = 'r';
-            return cmd;
         };
 
         this.extendDOMPanel();

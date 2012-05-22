@@ -98,7 +98,7 @@ var FireClosure =
         try {
             for (var sc = obj.environment; sc; sc = sc.parent) {
                 if ((sc.type === "object" || sc.type === "with")
-                        && sc.getVariable("_scopedVars")) {
+                        && sc.getVariable("profileEnd")) {
                     // Almost certainly the with(_FirebugCommandLine) block,
                     // which is at the top of the scope chain on objects
                     // defined through the console. Hide it for a nicer display.
