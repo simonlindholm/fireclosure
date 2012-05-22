@@ -35,7 +35,7 @@ var FireClosure =
                 if (FBTrace.DBG_FIRECLOSURE)
                     FBTrace.sysout("FireClosure; got debugger", this.dbg);
             }
-            catch(e) {
+            catch (e) {
                 if (FBTrace.DBG_FIRECLOSURE)
                     FBTrace.sysout("FireClosure; debugger initialization failed", e);
             }
@@ -67,7 +67,7 @@ var FireClosure =
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; getScopedVariableF didn't find anything");
         }
-        catch(e) {
+        catch (e) {
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; getScopedVariableF failed", e);
         }
@@ -87,7 +87,7 @@ var FireClosure =
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; setScopedVariableF didn't find anything");
         }
-        catch(e) {
+        catch (e) {
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; setScopedVariableF failed", e);
             throw e;
@@ -100,7 +100,7 @@ var FireClosure =
         var ret = [];
         try {
             for (var sc = obj.environment; sc; sc = sc.parent) {
-                if ((sc.type === "object" || sc.type === "with") // "with" is unimplemented
+                if ((sc.type === "object" || sc.type === "with")
                         && sc.getVariable("_scopedVars")) {
                     // Almost certainly the with(_FirebugCommandLine) block,
                     // which is at the top of the scope chain on objects
@@ -114,7 +114,7 @@ var FireClosure =
                 ret.push(sc.names());
             }
         }
-        catch(e) {
+        catch (e) {
             if (FBTrace.DBG_FIRECLOSURE)
                 FBTrace.sysout("FireClosure; getScopedVariablesF failed", e);
         }
@@ -148,7 +148,7 @@ var FireClosure =
                         try {
                             pd = obj.getOwnPropertyDescriptor(names[i]);
                         }
-                        catch(e) {
+                        catch (e) {
                             // getOwnPropertyDescriptor sometimes fails with
                             // "Illegal operation on WrappedNative prototype object",
                             // for instance on [window].proto.gopd('localStorage').

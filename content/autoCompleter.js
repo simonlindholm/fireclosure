@@ -1290,7 +1290,7 @@ function hasScopedVariables(context, obj)
         var parts = Firebug.FireClosure.getScopedVariables(w, obj);
         return parts.some(function(part) { return part.length > 0; });
     }
-    catch(e) {
+    catch (e) {
         if (FBTrace.DBG_FIRECLOSURE)
             FBTrace.sysout("FireClosure; failed to check for closed over variables", e);
         return false;

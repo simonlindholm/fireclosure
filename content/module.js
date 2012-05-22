@@ -178,7 +178,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
                         return Firebug.FireClosure.getScopedVarsWrapper(win, obj);
                     };
                 }
-                catch(e) {
+                catch (e) {
                     if (FBTrace.DBG_FIRECLOSURE)
                         FBTrace.sysout("FireClosure; failed to inject " + fname, e);
                 }
@@ -190,7 +190,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
             finally {
                 if (inj) {
                     try { delete win[fname]; }
-                    catch(e) {}
+                    catch (e) {}
                 }
             }
         };
