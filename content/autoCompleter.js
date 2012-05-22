@@ -25,105 +25,22 @@ const reLiteralExpr = /^[ "0-9,]*$/;
 // ********************************************************************************************* //
 // JavaScript auto-completion
 
+var OldJSAutoCompleter = Firebug.JSAutoCompleter;
+
 Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 {
-    this.textBox = textBox;
-    this.completionBox = completionBox;
-    this.options = options;
-    this.showCompletionPopup = options.completionPopup;
+    OldJSAutoCompleter.apply(this, arguments);
 
-    this.completionBase = {
-        pre: null,
-        expr: null,
-        candidates: []
-    };
-    this.completions = null;
-
-    this.revertValue = null;
-
-    this.completionPopup = Firebug.chrome.$("fbCommandLineCompletionList");
-    this.selectedPopupElement = null;
-
-    /**
-     * If a completion was just performed, revert it. Otherwise do nothing.
-     * Returns true iff the completion was reverted.
-     */
-    this.revert = function(context)
+    this.shouldIncludeHint = function()
     {
-        if (this.revertValue === null)
-            return false;
+        return (this.completions &&
+                this.completionBase.hasScope &&
+                !this.completions.prefix &&
+                !/\[['"]|\.%/.test(this.completionBase.expr.slice(-2)));
+    }
 
-        this.textBox.value = this.revertValue;
-        var len = this.textBox.value.length;
-        setCursorToEOL(this.textBox);
-
-        this.complete(context);
-        return true;
-    };
-
-    /**
-     * Hide completions temporarily, so they show up again on the next key press.
-     */
-    this.hide = function()
-    {
-        this.completionBase = {
-            pre: null,
-            expr: null,
-            candidates: []
-        };
-        this.completions = null;
-
-        this.showCompletions();
-    };
-
-    /**
-     * Hide completions for this expression (/completion base). Appending further
-     * characters to the variable name will not make completions appear, but
-     * adding, say, a semicolon and typing something else will.
-     */
-    this.hideForExpression = function()
-    {
-        this.completionBase.candidates = [];
-        this.completions = null;
-
-        this.showCompletions();
-    };
-
-    /**
-     * Check whether it would be acceptable for the return key to evaluate the
-     * expression instead of completing things.
-     */
-    this.acceptReturn = function()
-    {
-        if (!this.completions)
-            return true;
-
-        if (this.getCompletionBoxValue() === this.textBox.value)
-        {
-            // The user wouldn't see a difference if we completed. This can
-            // happen for example if you type 'alert' and press enter,
-            // regardless of whether or not there exist other completions.
-            return true;
-        }
-
-        return false;
-    };
-
-    /**
-     * Show completions for the current contents of the text box. Either this or
-     * hide() must be called when the contents change.
-     */
-    this.complete = function(context)
-    {
-        this.revertValue = null;
-        this.createCandidates(context);
-        this.showCompletions();
-    };
-
-    /**
-     * Update the completion base and create completion candidates for the
-     * current value of the text box.
-     */
+    /* Modified to use the right parsing/evaluation functions, and pass scope
+     * data to them. */
     this.createCandidates = function(context)
     {
         var offset = this.textBox.selectionStart;
@@ -185,251 +102,37 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         this.createCompletions(prop);
     };
 
-    /**
-     * From a valid completion base, create a list of completions (containing
-     * those completion candidates that share a prefix with the user's input)
-     * and a default completion.
-     */
-    this.createCompletions = function(prefix)
-    {
-        var candidates = this.completionBase.candidates;
-        var valid = [];
-
-        if (!this.completionBase.expr && !prefix)
-        {
-            // Don't complete "".
-        }
-        else
-        {
-            for (var i = 0; i < candidates.length; ++i)
-            {
-                var name = candidates[i];
-                if (Str.hasPrefix(name, prefix))
-                    valid.push(name);
-            }
-        }
-
-        if (valid.length > 0)
-        {
-            this.completions = {
-                list: valid,
-                prefix: prefix
-            };
-            this.pickDefaultCandidate();
-        }
-        else
-        {
-            this.completions = null;
-        }
-    };
-
-    /**
-     * Chose a default candidate from the list of completions. This is currently
-     * selected as the shortest completion, to make completions disappear when
-     * typing a variable name that is also the prefix of another.
-     */
-    this.pickDefaultCandidate = function()
-    {
-        var pick = 0;
-        var ar = this.completions.list;
-        for (var i = 1; i < ar.length; i++)
-        {
-            if (ar[i].length < ar[pick].length)
-                pick = i;
-        }
-        this.completions.index = pick;
-    };
-
-    /**
-     * Go backward or forward one step in the list of completions.
-     * dir is the relative movement in the list; -1 means backward and 1 forward.
-     */
-    this.cycle = function(dir)
-    {
-        this.completions.index += dir;
-        if (this.completions.index >= this.completions.list.length)
-            this.completions.index = 0;
-        else if (this.completions.index < 0)
-            this.completions.index = this.completions.list.length - 1;
-        this.showCompletions();
-    };
-
-    /**
-     * Get the property name that is currently selected as a completion (or
-     * null if there is none).
-     */
-    this.getCurrentCompletion = function()
-    {
-        return (this.completions ? this.completions.list[this.completions.index] : null);
-    };
-
-    /**
-     * See if we have any completions.
-     */
-    this.hasCompletions = function()
-    {
-        return !!this.completions;
-    };
-
-    /**
-     * Get the value the completion box should have for some value of the
-     * text box and a selected completion.
-     */
-    this.getCompletionBoxValue = function()
-    {
-        var completion = this.getCurrentCompletion();
-        if (completion === null)
-            return "";
-        return this.completionBase.pre + this.completionBase.expr + completion;
-    };
-
-    /**
-     * Update the completion box and popup to be consistent with the current
-     * state of the auto-completer.
-     */
+    /* Hacked to include the .% hint in the count */
+    var oldShowCompletions = this.showCompletions;
     this.showCompletions = function()
     {
-        this.completionBox.value = this.getCompletionBoxValue();
-
-        var nc = (this.completions ?
-            (this.completions.list.length + (this.completionBase.hasScope ? 1 : 0)) :
-            0);
-        if (this.showCompletionPopup && nc > 1)
-            this.popupCandidates();
-        else
-            this.closePopup();
-    };
-
-    /**
-     * Handle a keypress event. Returns true if the auto-completer used up
-     * the event and does not want it to propagate further.
-     */
-    this.handleKeyPress = function(event, context)
-    {
-        var clearedTabWarning = this.clearTabWarning();
-
-        if (Events.isAlt(event))
-            return false;
-
-        if (event.keyCode === KeyEvent.DOM_VK_TAB &&
-            !Events.isControl(event) && this.textBox.value !== "")
+        if (this.completions && this.shouldIncludeHint())
         {
-            if (this.completions)
-            {
-                this.acceptCompletion();
-                Events.cancelEvent(event);
-                return true;
-            }
-            else if (this.options.tabWarnings)
-            {
-                if (clearedTabWarning)
-                {
-                    // Send tab along if the user was warned.
-                    return false;
-                }
-
-                this.setTabWarning();
-                Events.cancelEvent(event);
-                return true;
-            }
+            // Add a sentinel (removed further down, and in popupCandidates) to
+            // make the count right in the real showCompletions, without having
+            // to duplicate logic.
+            this.completions.list.push(undefined);
+            this.completions.hasHintElement = true;
         }
-        else if (event.keyCode === KeyEvent.DOM_VK_RETURN && !this.acceptReturn())
-        {
-            // Completion on return, when one is user-visible.
-            this.acceptCompletion();
-            Events.cancelEvent(event);
-            return true;
-        }
-        else if (event.keyCode === KeyEvent.DOM_VK_RIGHT && this.completions &&
-            this.textBox.selectionStart === this.textBox.value.length)
-        {
-            // Complete on right arrow at end of line.
-            this.acceptCompletion();
-            Events.cancelEvent(event);
-            return true;
-        }
-        else if (event.keyCode === KeyEvent.DOM_VK_ESCAPE)
-        {
-            if (this.completions)
-            {
-                this.hideForExpression();
-                Events.cancelEvent(event);
-                return true;
-            }
-            else
-            {
-                // There are no visible completions, but we might still be able to
-                // revert a recently performed completion.
-                if (this.revert(context))
-                {
-                    Events.cancelEvent(event);
-                    return true;
-                }
-            }
-        }
-        else if (event.keyCode === KeyEvent.DOM_VK_UP || event.keyCode === KeyEvent.DOM_VK_DOWN)
-        {
-            if (this.completions)
-            {
-                this.cycle((event.keyCode === KeyEvent.DOM_VK_UP ? -1 : 1));
-                Events.cancelEvent(event);
-                return true;
-            }
-        }
-        return false;
-    };
 
-    /**
-     * Handle a keydown event.
-     */
-    this.handleKeyDown = function(event, context)
-    {
-        if (event.keyCode === KeyEvent.DOM_VK_ESCAPE && this.completions)
+        oldShowCompletions.apply(this, arguments);
+
+        if (this.completions && this.completions.hasHintElement)
         {
-            // Close the completion popup on escape in keydown, so that the popup
-            // does not close itself and prevent event propagation on keypress.
-            this.closePopup();
+            this.completions.list.pop();
+            delete this.completions.hasHintElement;
         }
     };
 
-    this.clearTabWarning = function()
-    {
-        if (this.tabWarning)
-        {
-            this.completionBox.value = "";
-            delete this.tabWarning;
-            return true;
-        }
-        return false;
-    };
-
-    this.setTabWarning = function()
-    {
-        this.completionBox.value = this.textBox.value + "    " +
-            Locale.$STR("firebug.completion.empty");
-
-        this.tabWarning = true;
-    };
-
-    /**
-     * Accept the currently shown completion in the text box.
-     */
-    this.acceptCompletion = function()
-    {
-        var completion = this.getCurrentCompletion();
-        completion = adjustCompletionOnAccept(this.completionBase.pre,
-                this.completionBase.expr, completion);
-
-        var originalValue = this.textBox.value;
-        this.textBox.value = completion;
-        setCursorToEOL(this.textBox);
-
-        this.hide();
-        this.revertValue = originalValue;
-    };
-
+    /* Edited to include the .% hint. */
     this.popupCandidates = function()
     {
+        if (this.completions.hasHintElement)
+        {
+            this.completions.list.pop();
+            delete this.completions.hasHintElement;
+        }
+
         var commandCompletionLineLimit = 40;
 
         Dom.eraseNode(this.completionPopup);
@@ -448,13 +151,8 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         var escPrefix = Str.escapeForTextNode(this.textBox.value);
 
         var listSize = this.completions.list.length;
-        if (this.completions.prefix == '' &&
-            !/\[['"]/.test(this.completionBase.expr.slice(-2)) &&
-            this.completionBase.expr.slice(-2) !== ".%" &&
-            this.completionBase.hasScope)
-        {
+        if (this.shouldIncludeHint())
             ++listSize;
-        }
 
         var showTop = 0;
         var showBottom = listSize;
@@ -520,73 +218,6 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 
         this.completionPopup.openPopup(this.textBox, "before_start", 0, 0, false, false);
     };
-
-    this.closePopup = function()
-    {
-        if (this.completionPopup.state == "closed")
-            return;
-
-        try
-        {
-            this.completionPopup.hidePopup();
-        }
-        catch (err)
-        {
-            if (FBTrace.DBG_ERRORS)
-                FBTrace.sysout("Firebug.JSAutoCompleter.closePopup; EXCEPTION " + err, err);
-        }
-    };
-
-    this.getCompletionPopupElementFromEvent = function(event)
-    {
-        var selected = event.target;
-        while (selected && selected.localName !== "div")
-            selected = selected.parentNode;
-
-        return (selected && typeof selected.completionIndex !== "undefined" ? selected : null);
-    };
-
-    this.popupMousedown = function(event)
-    {
-        var el = this.getCompletionPopupElementFromEvent(event);
-        if (!el)
-            return;
-
-        if (this.selectedPopupElement)
-            this.selectedPopupElement.removeAttribute("selected");
-
-        this.selectedPopupElement = el;
-        this.selectedPopupElement.setAttribute("selected", "true");
-        this.completions.index = el.completionIndex;
-        this.completionBox.value = this.getCompletionBoxValue();
-    };
-
-    this.popupClick = function(event)
-    {
-        var el = this.getCompletionPopupElementFromEvent(event);
-        if (!el)
-            return;
-
-        this.completions.index = el.completionIndex;
-        this.acceptCompletion();
-    };
-
-    this.popupMousedown = Obj.bind(this.popupMousedown, this);
-    this.popupClick = Obj.bind(this.popupClick, this);
-
-    /**
-     * A destructor function, to be called when the auto-completer is destroyed.
-     */
-    this.shutdown = function()
-    {
-        this.completionBox.value = "";
-
-        Events.removeEventListener(this.completionPopup, "mousedown", this.popupMousedown, true);
-        Events.removeEventListener(this.completionPopup, "click", this.popupClick, true);
-    };
-
-    Events.addEventListener(this.completionPopup, "mousedown", this.popupMousedown, true);
-    Events.addEventListener(this.completionPopup, "click", this.popupClick, true);
 };
 
 /**
@@ -968,37 +599,6 @@ function killCompletions(expr, origExpr)
         }
     }
     return false;
-}
-
-function adjustCompletionOnAccept(preParsed, preExpr, property)
-{
-    var res = preParsed + preExpr + property;
-
-    // Don't adjust index completions.
-    if (/^\[['"]$/.test(preExpr.slice(-2)))
-        return res;
-
-    // Nor completions of scoped variables.
-    if (preExpr.slice(-2) === ".%")
-        return res;
-
-    if (!isValidProperty(property))
-    {
-        // The property name is actually invalid in free form, so replace
-        // it with array syntax.
-
-        if (preExpr)
-        {
-            res = preParsed + preExpr.slice(0, -1);
-        }
-        else
-        {
-            // Global variable access - assume the variable is a member of 'window'.
-            res = preParsed + "window";
-        }
-        res += '["' + Str.escapeJS(property) + '"]';
-    }
-    return res;
 }
 
 // Types the autocompletion knows about, some of their non-enumerable properties,
@@ -1801,13 +1401,6 @@ function nonNumericKeys(map)  // keys will be on user-level window objects
     }
 
     return keys;  // return is safe
-}
-
-function setCursorToEOL(input)
-{
-    // textbox version, https://developer.mozilla.org/en/XUL/Property/inputField
-    // input.inputField.setSelectionRange(len, len);
-    input.setSelectionRange(input.value.length, input.value.length);
 }
 
 // ********************************************************************************************* //
