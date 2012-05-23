@@ -117,6 +117,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         // have to add the functions to all subclasses of DOMBasePanel we know of.
         var classes = [
             Firebug.DOMBasePanel,
+            Firebug.WatchPanel,
             Firebug.DOMPanel,
             Firebug.getPanelType('domSide')
         ];
