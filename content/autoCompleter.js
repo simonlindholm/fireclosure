@@ -222,7 +222,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 
 /**
  * Transform an expression from using .% into something JavaScript-friendly, which
- * delegates to _FirebugCommandLine.
+ * delegates to a helper function.
  * Used only in module.js, but autoCompleter.js has so many nice helper functions.
  */
 Firebug.JSAutoCompleter.transformScopeExpr = function(expr, fname)
@@ -234,13 +234,13 @@ Firebug.JSAutoCompleter.transformScopeExpr = function(expr, fname)
         var end = sexpr.indexOf(".%", search);
         if (end === -1) break;
         var start = getExpressionOffset(sexpr, end);
-        expr = expr.substr(0, start) + fname + "(" +
-            expr.substring(start, end) + ")." +
+        expr = expr.substr(0, start) + "(" + fname + "(" +
+            expr.substring(start, end) + "))." +
             expr.substr(end+2);
-        sexpr = sexpr.substr(0, start) + fname + "(" +
-            sexpr.substring(start, end) + ")." +
+        sexpr = sexpr.substr(0, start) + "(" + fname + "(" +
+            sexpr.substring(start, end) + "))." +
             sexpr.substr(end+2);
-        search = end + fname + "().".length;
+        search = end + fname + "(()).".length;
     }
     return expr;
 };
@@ -295,7 +295,8 @@ function getExpressionOffset(command, start)
 
     // The 'new' operator has higher precedence than function calls, so, if
     // present, it should be included if the expression contains a parenthesis.
-    if (i-4 >= 0 && command.indexOf("(", i) !== -1 && command.substr(i-4, 4) === "new ")
+    var ind = command.indexOf("(", i+1);
+    if (i-4 >= 0 && ind !== -1 && ind < start && command.substr(i-4, 4) === "new ")
     {
         i -= 4;
     }
