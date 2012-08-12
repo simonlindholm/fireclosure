@@ -97,8 +97,9 @@ var FireClosure =
         var ret = [];
         try {
             for (var sc = obj.environment; sc; sc = sc.parent) {
-                if ((sc.type === "object" || sc.type === "with")
-                        && sc.getVariable("profileEnd")) {
+                if ((sc.type === "object" || sc.type === "with") &&
+                        sc.getVariable("profileEnd"))
+                {
                     // Almost certainly the with(_FirebugCommandLine) block,
                     // which is at the top of the scope chain on objects
                     // defined through the console. Hide it for a nicer display.
@@ -133,7 +134,7 @@ var FireClosure =
             }
             else {
                 var first = true;
-                for (;;) {
+                while (obj) {
                     var names = obj.getOwnPropertyNames(), pd;
                     for (var i = 0; i < names.length; ++i) {
                         // We assume that the first own property, or the first
@@ -151,21 +152,23 @@ var FireClosure =
                             // for instance on [window].proto.gopd('localStorage').
                             continue;
                         }
-                        if (!pd || pd.get || pd.set || (!first && !pd.enumerable))
+                        if (!pd || (!first && !pd.enumerable))
                             continue;
-                        var f = pd.value;
-                        if (!f || !self.scopeIsInteresting(f.environment))
-                            continue;
-                        var args = [].slice.call(arguments);
-                        args[0] = f;
-                        return functionSpecific.apply(this, args);
+                        var toTest = [pd.get, pd.set, pd.value];
+                        for (var j = 0; j < toTest.length; ++j) {
+                            var f = toTest[j];
+                            if (f && self.scopeIsInteresting(f.environment)) {
+                                var args = [].slice.call(arguments);
+                                args[0] = f;
+                                return functionSpecific.apply(this, args);
+                            }
+                        }
                     }
 
                     if (!first)
                         break;
                     first = false;
                     obj = obj.proto;
-                    if (!obj) break;
                 }
                 return defaultValue;
             }

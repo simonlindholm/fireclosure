@@ -22,7 +22,6 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
     addScopeToMembers: function(members, object, level, scope, name)
     {
-        var type = "proto";
         var m = {
             object: object,
             name: name,
@@ -140,8 +139,9 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         // Override the evaluator by one that handles .%. This is done by
         // sticking a function for getting scope on the global object, where it
         // is easily accessible even in cases when there is no command line
-        // (e.g., issue 5321). If the expression doesn't use .%, don't inject
-        // the function, to avoid leaking capabilities into arbitrary web pages.
+        // object (e.g., issue 5321). If the expression doesn't use .%, don't
+        // inject the function, to avoid leaking capabilities into arbitrary
+        // web pages.
         var origEv = CommandLine.evaluate;
         CommandLine.evaluate = function(expr, context, thisValue, targetWin) {
             var args = [].slice.call(arguments);
