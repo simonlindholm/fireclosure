@@ -29,6 +29,8 @@ var OldJSAutoCompleter = Firebug.JSAutoCompleter;
 
 Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 {
+    var popupSize = 40;
+
     OldJSAutoCompleter.apply(this, arguments);
 
     this.shouldIncludeHint = function()
@@ -87,6 +89,8 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
             FBTrace.sysout("Completing: " + this.completionBase.pre + sep + preExpr + sep + prop);
         }
 
+        var prevCompletions = this.completions;
+
         // We only need to calculate a new candidate list if the expression has
         // changed (we can ignore this.completionBase.pre since completions do not
         // depend upon that).
@@ -97,9 +101,60 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
             this.completionBase.hasScope = false;
             autoCompleteEval(this.completionBase, context, preExpr, spreExpr,
                 this.options.includeCurrentScope);
+            prevCompletions = null;
         }
 
-        this.createCompletions(prop);
+        this.createCompletions(prop, prevCompletions);
+    };
+
+    /* Modified to ignore the .% hint in the popup. */
+    this.pageCycle = function(dir)
+    {
+        var list = this.completions.list, selIndex = this.completions.index;
+
+        if (!this.isPopupOpen())
+        {
+            // When no popup is open, cycle by a fixed amount and stop at edges.
+            this.cycle(dir * 15, true);
+            return;
+        }
+
+        var top = this.popupTop, bottom = this.popupBottom;
+
+        // Ignore the .% hint.
+        if (bottom > list.length)
+            --bottom;
+
+        if (top === 0 && bottom === list.length)
+        {
+            // For a single scroll page, act like home/end.
+            this.topCycle(dir);
+            return;
+        }
+
+        var immediateTarget;
+        if (dir === -1)
+            immediateTarget = (top === 0 ? top : top + 2);
+        else
+            immediateTarget = (bottom === list.length ? bottom : bottom - 2) - 1;
+        if ((selIndex - immediateTarget) * dir < 0)
+        {
+            // The selection has not yet reached the edge target, so jump to it.
+            selIndex = immediateTarget;
+        }
+        else
+        {
+            // Show the next page.
+            if (dir === -1 && top - popupSize <= 0)
+                selIndex = 0;
+            else if (dir === 1 && bottom + popupSize >= list.length)
+                selIndex = list.length - 1;
+            else
+                selIndex = immediateTarget + dir*popupSize;
+        }
+
+        this.completions.index = selIndex;
+        this.showCompletions(true);
     };
 
     /* Hacked to include the .% hint in the count */
@@ -125,15 +180,13 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
     };
 
     /* Edited to include the .% hint. */
-    this.popupCandidates = function()
+    this.popupCandidates = function(cycling)
     {
         if (this.completions.hasHintElement)
         {
             this.completions.list.pop();
             delete this.completions.hasHintElement;
         }
-
-        var commandCompletionLineLimit = 40;
 
         Dom.eraseNode(this.completionPopup);
         this.selectedPopupElement = null;
@@ -144,43 +197,66 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
 
         var title = this.completionPopup.ownerDocument.
             createElementNS("http://www.w3.org/1999/xhtml","div");
-        title.innerHTML = Locale.$STR("console.Use Arrow keys or Enter");
+        title.innerHTML = Locale.$STR("console.Use Arrow keys, Tab or Enter");
         title.classList.add("fbPopupTitle");
         vbox.appendChild(title);
 
-        var escPrefix = Str.escapeForTextNode(this.textBox.value);
-
-        var listSize = this.completions.list.length;
+        var list = this.completions.list, selIndex = this.completions.index;
+        var listSize = list.length;
         if (this.shouldIncludeHint())
             ++listSize;
 
-        var showTop = 0;
-        var showBottom = listSize;
-        if (listSize > commandCompletionLineLimit)
+        if (listSize <= popupSize)
         {
-            if (this.completions.index <= (commandCompletionLineLimit - 3))
+            this.popupTop = 0;
+            this.popupBottom = listSize;
+        }
+        else
+        {
+            var self = this;
+            var setTop = function(val)
             {
-                // We are in the top part of the list.
-                showBottom = commandCompletionLineLimit;
+                if (val < 0)
+                    val = 0;
+                self.popupTop = val;
+                self.popupBottom = val + popupSize;
+                if (self.popupBottom > listSize)
+                    setBottom(listSize);
+            };
+            var setBottom = function(val)
+            {
+                if (val > listSize)
+                    val = listSize;
+                self.popupBottom = val;
+                self.popupTop = val - popupSize;
+                if (self.popupTop < 0)
+                    setTop(0);
+            };
+
+            if (!cycling)
+            {
+                // Show the selection at nearly the bottom of the popup, where
+                // it is more local.
+                setBottom(selIndex + 3);
             }
             else
             {
-                // Implement manual scrolling.
-                if (this.completions.index > listSize - 3)
-                    showBottom = listSize;
-                else
-                    showBottom = this.completions.index + 3;
+                // Scroll the popup such that selIndex fits.
+                if (selIndex - 2 < this.popupTop)
+                    setTop(selIndex - 2);
+                else if (selIndex + 3 > this.popupBottom)
+                    setBottom(selIndex + 3);
             }
-
-            showTop = showBottom - commandCompletionLineLimit;
         }
 
-        for (var i = showTop; i < showBottom; i++)
+        var prefixLen = this.completions.prefix.length;
+
+        for (var i = this.popupTop; i < this.popupBottom; i++)
         {
             var hbox = this.completionPopup.ownerDocument.
                 createElementNS("http://www.w3.org/1999/xhtml","div");
 
-            if (i == this.completions.list.length) {
+            if (i === list.length) {
                 var text = this.completionPopup.ownerDocument.
                     createElementNS("http://www.w3.org/1999/xhtml","span");
                 text.innerHTML = "% for scope members...";
@@ -191,20 +267,24 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
                 hbox.appendChild(text);
             }
             else {
+                var completion = list[i];
                 hbox.completionIndex = i;
 
                 var pre = this.completionPopup.ownerDocument.
                     createElementNS("http://www.w3.org/1999/xhtml","span");
-                pre.innerHTML = escPrefix;
+                var preText = this.textBox.value;
+                if (prefixLen)
+                    preText = preText.slice(0, -prefixLen) + completion.slice(0, prefixLen);
+                pre.textContent = preText;
                 pre.classList.add("userTypedText");
 
-                var completion = this.completions.list[i].substr(this.completions.prefix.length);
                 var post = this.completionPopup.ownerDocument.
                     createElementNS("http://www.w3.org/1999/xhtml","span");
-                post.innerHTML = Str.escapeForTextNode(completion);
+                var postText = completion.substr(prefixLen);
+                post.textContent = postText;
                 post.classList.add("completionText");
 
-                if (i === this.completions.index)
+                if (i === selIndex)
                     this.selectedPopupElement = hbox;
 
                 hbox.appendChild(pre);
