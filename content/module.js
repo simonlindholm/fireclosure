@@ -5,11 +5,12 @@ define([
     "firebug/lib/trace",
     "firebug/firebug",
     "firebug/lib/domplate",
+    "firebug/lib/options",
     "firebug/console/commandLine",
     "firebug/dom/domPanel",
     "fireclosure/autoCompleter",
 ],
-function(Obj, FBTrace, Firebug, Domplate, CommandLine, DOMPanel, AutoCompleter) {
+function(Obj, FBTrace, Firebug, Domplate, Options, CommandLine, DOMPanel, AutoCompleter) {
 "use strict";
 
 // ********************************************************************************************* //
@@ -17,8 +18,8 @@ function(Obj, FBTrace, Firebug, Domplate, CommandLine, DOMPanel, AutoCompleter) 
 
 Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 {
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-    // Initialization
+    domPrefName: "fireclosure.showInDomPanel",
+    domActive: false,
 
     addScopeToMembers: function(members, object, level, scope, name)
     {
@@ -78,12 +79,15 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         {
             var members = oldGetMembers.apply(this, arguments);
 
+            // Some domplate objects don't provide contexts - grab one arbitrarily.
+            context = context || Firebug.currentContext;
+
             // Add the object's scope as a pseudo-object at the bottom.
             // The overridden getObjectView transforms it into something
             // readable by the rest of Firebug.
             var win = context && context.window;
             win = win && win.wrappedJSObject;
-            if (win) {
+            if (self.domActive && win) {
                 var isScope = ScopeRep.supportsObject(object);
                 var scope, scopeName;
                 if (isScope) {
@@ -107,7 +111,7 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
         var newGetObjectView = function(object)
         {
-            if (ScopeRep.supportsObject(object))
+            if (self.domActive && ScopeRep.supportsObject(object))
                 return getScopeWrapper(object);
             return oldGetObjectView(object);
         };
@@ -184,10 +188,12 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
         };
 
         this.extendDOMPanel();
+        Firebug.registerUIListener(this);
     },
 
     shutdown: function()
     {
+        Firebug.unregisterUIListener(this);
         Firebug.Module.shutdown.apply(this, arguments);
 
         if (FBTrace.DBG_FIRECLOSURE)
@@ -196,6 +202,41 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
     showPanel: function(browser, panel)
     {
+    },
+
+    updateOption: function(name, value)
+    {
+        if (name === this.domPrefName)
+            this.domActive = value;
+    },
+
+    onOptionsMenu: function(context, panel, items)
+    {
+        if (panel.name != "dom")
+            return;
+
+        var pref = this.domPrefName;
+        var option = {
+            label: "Show Closure Variables",
+            nol10n: true,
+            type: "checkbox",
+            checked: Options.get(pref),
+            option: pref,
+            tooltiptext: "Show the closures associated with various objects (FireClosure)",
+            command: function() {
+                Options.togglePref(pref);
+                panel.rebuild(true);
+            }
+        };
+
+        // Append the option at the right position.
+        for (var i = 0; i < items.length; ++i) {
+            var item = items[i];
+            if (item.option === "showInlineEventHandlers") {
+                items.splice(i+1, 0, option);
+                break;
+            }
+        }
     }
 });
 
