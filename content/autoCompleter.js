@@ -320,7 +320,7 @@ Firebug.JSAutoCompleter.transformScopeExpr = function(expr, fname)
         sexpr = sexpr.substr(0, start) + "(" + fname + "(" +
             sexpr.substring(start, end) + "))." +
             sexpr.substr(end+2);
-        search = end + fname + "(()).".length;
+        search = end + fname.length + "(()).".length - ".%".length;
     }
     return expr;
 };
