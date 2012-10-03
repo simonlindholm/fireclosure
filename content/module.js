@@ -19,6 +19,7 @@ function(Obj, FBTrace, Firebug, Domplate, Options, CommandLine, DOMPanel, AutoCo
 Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 {
     domPrefName: "fireclosure.showInDomPanel",
+    hintsPrefName: "fireclosure.showHints",
     domActive: false,
 
     addScopeToMembers: function(members, object, level, scope, name)
@@ -212,29 +213,51 @@ Firebug.FireClosureModule = Obj.extend(Firebug.Module,
 
     onOptionsMenu: function(context, panel, items)
     {
-        if (panel.name != "dom")
-            return;
+        if (panel.name === "dom") {
+            var pref = this.domPrefName;
+            var option = {
+                label: "Show Closure Variables",
+                nol10n: true,
+                type: "checkbox",
+                checked: Options.get(pref),
+                option: pref,
+                tooltiptext: "Show the closures associated with various objects (FireClosure)",
+                command: function() {
+                    Options.togglePref(pref);
+                    panel.rebuild(true);
+                }
+            };
 
-        var pref = this.domPrefName;
-        var option = {
-            label: "Show Closure Variables",
-            nol10n: true,
-            type: "checkbox",
-            checked: Options.get(pref),
-            option: pref,
-            tooltiptext: "Show the closures associated with various objects (FireClosure)",
-            command: function() {
-                Options.togglePref(pref);
-                panel.rebuild(true);
+            // Append the option at the right position.
+            for (var i = 0; i < items.length; ++i) {
+                var item = items[i];
+                if (item.option === "showInlineEventHandlers") {
+                    items.splice(i+1, 0, option);
+                    break;
+                }
             }
-        };
+        }
+        else if (panel.name === "console") {
+            var pref = this.hintsPrefName;
+            var option = {
+                label: "Show Closure Hints",
+                nol10n: true,
+                type: "checkbox",
+                checked: Options.get(pref),
+                option: pref,
+                tooltiptext: "Hint at existence of closures in the completion popup (FireClosure)",
+                command: function() {
+                    Options.togglePref(pref);
+                }
+            };
 
-        // Append the option at the right position.
-        for (var i = 0; i < items.length; ++i) {
-            var item = items[i];
-            if (item.option === "showInlineEventHandlers") {
-                items.splice(i+1, 0, option);
-                break;
+            // Append the option at the right position.
+            for (var i = 0; i < items.length; ++i) {
+                var item = items[i];
+                if (item.option === "commandLineShowCompleterPopup") {
+                    items.splice(i, 0, option);
+                    break;
+                }
             }
         }
     }

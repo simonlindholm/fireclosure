@@ -4,6 +4,7 @@ define([
     "firebug/lib/object",
     "firebug/firebug",
     "firebug/chrome/reps",
+    "firebug/lib/options",
     "firebug/lib/locale",
     "firebug/lib/events",
     "firebug/lib/wrapper",
@@ -12,7 +13,7 @@ define([
     "firebug/lib/array",
     "firebug/console/autoCompleter",
 ],
-function(Obj, Firebug, FirebugReps, Locale, Events, Wrapper, Dom, Str, Arr) {
+function(Obj, Firebug, FirebugReps, Options, Locale, Events, Wrapper, Dom, Str, Arr) {
 
 // ********************************************************************************************* //
 // Constants
@@ -38,6 +39,7 @@ Firebug.JSAutoCompleter = function(textBox, completionBox, options)
         return (this.completions &&
                 this.completionBase.hasScope &&
                 !this.completions.prefix &&
+                Options.get("fireclosure.showHints") &&
                 !/\[['"]|\.%/.test(this.completionBase.expr.slice(-2)));
     }
 
