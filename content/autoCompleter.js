@@ -22,6 +22,8 @@ const reOpenBracket = /[\[\(\{]/;
 const reCloseBracket = /[\]\)\}]/;
 const reJSChar = /[a-zA-Z0-9$_]/;
 const reLiteralExpr = /^[ "0-9,]*$/;
+const kwActions = ["throw", "return", "in", "instanceof", "delete", "new",
+                   "typeof", "void", "yield"];
 
 // ********************************************************************************************* //
 // JavaScript auto-completion
@@ -432,11 +434,17 @@ function prevWord(str, from)
     return 0;
 }
 
+/**
+ * Check if a position 'pos', marking the start of a property name, is
+ * preceded by a function-declaring keyword.
+ */
 function isFunctionName(expr, pos)
 {
-    pos -= 9;
-    return (pos >= 0 && expr.substr(pos, 9) === "function " &&
-            (pos === 0 || !reJSChar.test(expr.charAt(pos-1))));
+    var ind = prevNonWs(expr, pos);
+    if (ind === -1 || !reJSChar.test(expr.charAt(ind)))
+        return false;
+    var word = expr.substring(prevWord(expr, ind), ind+1);
+    return (word === "function" || word === "get" || word === "set");
 }
 
 function bwFindMatchingParen(expr, from)
@@ -459,8 +467,6 @@ function bwFindMatchingParen(expr, from)
  */
 function endingDivIsRegex(expr)
 {
-    var kwActions = ["throw", "return", "in", "instanceof", "delete", "new",
-        "do", "else", "typeof", "void", "yield"];
     var kwCont = ["function", "if", "while", "for", "switch", "catch", "with"];
 
     var ind = prevNonWs(expr, expr.length), ch = (ind === -1 ? "{" : expr.charAt(ind));
@@ -470,7 +476,7 @@ function endingDivIsRegex(expr)
         // If so, we have a regex, otherwise, we have a division (a variable
         // or literal being divided by something).
         var w = expr.substring(prevWord(expr, ind), ind+1);
-        return (kwActions.indexOf(w) !== -1);
+        return (kwActions.indexOf(w) !== -1 || w === "do" || w === "else");
     }
     else if (ch === ")")
     {
@@ -502,7 +508,12 @@ function isObjectDecl(expr, pos)
     if (ind === -1)
         return false;
     var ch = expr.charAt(ind);
-    return !(ch === ")" || ch === "{" || ch === "}" || ch === ";");
+    if (ch === ")" || ch === "{" || ch === "}" || ch === ";")
+        return false;
+    if (!reJSChar.test(ch))
+        return true;
+    var w = expr.substring(prevWord(expr, ind), ind+1);
+    return (kwActions.indexOf(w) !== -1);
 }
 
 function isCommaProp(expr, start)
@@ -671,13 +682,12 @@ function killCompletions(expr, origExpr)
     if (bwp !== -1)
     {
         var ind = prevNonWs(expr, bwp);
-        if (ind !== -1)
+        if (ind !== -1 && reJSChar.test(expr.charAt(ind)))
         {
             var stw = prevWord(expr, ind);
             if (expr.substring(stw, ind+1) === "function")
                 return true;
-            ind = prevNonWs(expr, stw);
-            if (ind !== -1 && expr.substring(prevWord(expr, ind), ind+1) === "function")
+            if (isFunctionName(expr, stw))
                 return true;
         }
     }
